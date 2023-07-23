@@ -1,0 +1,75 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="@string/capture_header">
+
+        <SwitchPreferenceCompat
+            app:key="capture_raw_stream"
+            app:defaultValue="true"
+            app:summaryOff="拍摄时只保存jpg照片"
+            app:summaryOn="拍摄照片的同时并保存原始码流数据"
+            app:title="保存原始码流数据" />
+
+        <SwitchPreferenceCompat
+            app:key="capture_extra_info"
+            app:defaultValue="true"
+            app:title="拍摄时记录额外信息" />
+
+        <EditTextPreference
+            app:key="signature"
+            app:title="@string/signature_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            app:defaultValue="bottom"
+            app:entries="@array/legend_position_entries"
+            app:entryValues="@array/legend_position_values"
+            app:key="legend_position"
+            app:title="@string/legend_position_title"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
+
+
+    <PreferenceCategory app:title="录制">
+
+        <SwitchPreferenceCompat
+            app:key="keep_screen_on_when_recording"
+            app:defaultValue="false"
+            app:title="录制视频时保持屏幕常亮" />
+
+        <SwitchPreferenceCompat
+            app:key="record_raw_stream"
+            app:defaultValue="true"
+            app:summaryOff="关闭后可能无法追溯额外信息"
+            app:summaryOn="开启后会占用较大储存空间"
+            app:title="录制原始码流数据" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/logs_header">
+
+        <SwitchPreferenceCompat
+            app:key="log_output"
+            app:defaultValue="true"
+            app:title="输出日志" />
+
+        <SwitchPreferenceCompat
+            app:dependency="log_output"
+            app:key="camera_instant_log"
+            app:defaultValue="true"
+            app:summaryOff="@string/attachment_summary_off"
+            app:summaryOn="@string/attachment_summary_on"
+            app:title="@string/camera_instant_log" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="其他">
+
+        <Preference
+            app:key="view_demo"
+            app:defaultValue="true"
+            app:title="查看官方示例" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

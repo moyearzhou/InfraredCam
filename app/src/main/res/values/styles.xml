@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--ShapeableImageView 圆角-->
+    <style name="CircleStyle">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="DarkToolbarTheme" parent="Widget.AppCompat.Toolbar">
+        <item name="titleTextColor">#FFFFFF</item> <!-- Set the text color to white (#FFFFFF) -->
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
+</resources>

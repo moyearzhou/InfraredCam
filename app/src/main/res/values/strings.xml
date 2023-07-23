@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">ThermCam</string>
+    <string name="title_activity_camera">CameraActivity</string>
+    <!-- Strings used for fragments for navigation -->
+    <string name="first_fragment_label">First Fragment</string>
+    <string name="second_fragment_label">Second Fragment</string>
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+
+    <string name="hello_first_fragment">Hello first fragment</string>
+    <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+    <string name="title_activity_settings">设置</string>
+
+    <!-- Preference Titles -->
+    <string name="capture_header">拍摄</string>
+    <string name="logs_header">日志</string>
+
+    <!-- Messages Preferences -->
+    <string name="signature_title">照片水印</string>
+    <string name="legend_position_title">图例位置</string>
+
+    <!-- Sync Preferences -->
+    <string name="camera_instant_log">预览画面即时输出日志</string>
+    <string name="attachment_title">Download incoming attachments</string>
+    <string name="attachment_summary_on">Automatically download attachments for incoming emails
+    </string>
+    <string name="attachment_summary_off">Only download attachments when manually requested</string>
+    <string name="take_photo">拍照</string>
+    <string name="take_video">录像</string>
+</resources>
