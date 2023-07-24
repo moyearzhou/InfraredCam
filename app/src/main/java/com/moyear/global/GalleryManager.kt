@@ -24,6 +24,14 @@ class GalleryManager {
      * 列出所有的照片，按照名称排序
      */
     fun listCaptures(): List<Infrared.CaptureInfo> {
+        val captures = mutableListOf<Infrared.CaptureInfo>()
+        captures.addAll(listPhotoCaptures())
+        captures.addAll(listVideoCaptures())
+
+        return captures.sortedBy { it.name }
+    }
+
+    private fun listPhotoCaptures(): List<Infrared.CaptureInfo> {
         val photoDir = AppPath.getPhotoDir()
 
         if (photoDir.isFile || !photoDir.exists()) return emptyList()
@@ -32,14 +40,35 @@ class GalleryManager {
 
         if (files.isNullOrEmpty()) return emptyList()
 
-        val captureInfos = mutableListOf<Infrared.CaptureInfo>()
+        val photoInfos = mutableListOf<Infrared.CaptureInfo>()
         for (file in files) {
             if (file.isDirectory || !file.name.endsWith(".jpg")) continue
 
             val captureInfo = Infrared.CaptureInfo(file.name, file.path)
-            captureInfos.add(captureInfo)
+            photoInfos.add(captureInfo)
         }
-        return captureInfos.sortedBy { it.name }
+
+        return photoInfos
+    }
+
+    private fun listVideoCaptures(): List<Infrared.CaptureInfo> {
+        val videoDir = AppPath.getVideoDir()
+
+        if (videoDir.isFile || !videoDir.exists()) return emptyList()
+
+        val files = videoDir.listFiles()
+
+        if (files.isNullOrEmpty()) return emptyList()
+
+        val videoInfos = mutableListOf<Infrared.CaptureInfo>()
+        for (file in files) {
+            if (file.isFile || !file.name.endsWith(".video")) continue
+
+            val captureInfo = Infrared.CaptureInfo(file.name, file.path, Infrared.CAPTURE_VIDEO)
+            videoInfos.add(captureInfo)
+        }
+
+        return videoInfos
     }
 
     fun getJpgFile(fileNameWithoutSuffix: String): File? {

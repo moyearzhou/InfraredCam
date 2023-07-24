@@ -55,7 +55,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
 public class CameraActivity extends AppCompatActivity implements SurfaceHolder.Callback {
@@ -74,8 +73,6 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
 
     private SurfaceHolder mHolder = null;
 
-    private Timer timer = new Timer();
-
     private CameraActivityViewModel viewModel;
 
     private final Long[] recordTime = new Long[]{0L};
@@ -85,7 +82,6 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
 
     private boolean isRecordingTiming = false;
 
-    @SuppressLint("NewApi")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -105,6 +101,10 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
             startActivity(intent);
         });
 
+        mBinding.btnConfig.setOnClickListener(view -> {
+            Toast.makeText(this, "代码待写！！", Toast.LENGTH_SHORT).show();
+        });
+
         mBinding.shootView.setShutterTouchListener(new ShutterTouchEventListener() {
             @Override
             public void takePicture() {
@@ -114,13 +114,11 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
             @Override
             public void videoStart() {
                 takeRecord();
-//                Toast.makeText(CameraActivity.this, "开始录制视频", Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void videoEnd() {
                 endRecording();
-//                Toast.makeText(CameraActivity.this, "结束录制视频", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -137,16 +135,20 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
             }
         });
 
-        viewModel.isCameraConnected().observe(this, isCameraConnected -> {
-            if (isCameraConnected) {
-                hideNoLinkView();
+        viewModel.getCurUserId().observe(this, curUserId -> {
+            if (curUserId == JavaInterface.USB_INVALID_USER_ID) {
+                showEmptyCameraView();
             } else {
-                showNoLinkView();
+                hideEmptyCameraView();
             }
         });
     }
 
     private void endRecording() {
+        mBinding.shootView.setCameraMode(ShootView.OPTION_TAKE_VIDEO);
+
+        thermalCameraView.endRecord();
+
         if (handler != null) {
             handler.removeCallbacksAndMessages(null);
         }
@@ -157,10 +159,14 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
     }
 
     private void takeRecord() {
-        if (!viewModel.isCameraConnected().getValue()) {
+        if (viewModel.getUserId() == JavaInterface.USB_INVALID_USER_ID) {
             Toast.makeText(this, "尚未连接到usb相机！", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        mBinding.shootView.setCameraMode(ShootView.OPTION_VIDEO_RECORDING);
+
+        thermalCameraView.startRecord();
 
         isRecordingTiming = true;
         handler = new Handler();
@@ -245,7 +251,7 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
     }
 
     private void updateLatestCapture(Infrared.CaptureInfo captureInfo) {
-        File img = new File(captureInfo.getPath());
+        File img = Infrared.findCaptureImageFile(captureInfo);
 
         Glide.with(this)
                 .load(img)
@@ -287,7 +293,7 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
     }
 
     private void takeCapture() {
-        if (!viewModel.isCameraConnected().getValue()) {
+        if (viewModel.getUserId() == JavaInterface.USB_INVALID_USER_ID) {
             Toast.makeText(this, "尚未连接到usb相机！", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -310,7 +316,7 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
             throw new RuntimeException(e);
         }
 
-        Log.i("[UsbDemo]", "Action: ========Take a capture!==========");
+        Log.i(TAG, "Action: ========Take a capture!==========");
     }
 
     private void initCameraView() {
@@ -343,21 +349,11 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
             public void onDetach(@NonNull UsbDevice usbDevice) {
                 Toast.makeText(CameraActivity.this, "USB设备拔出", Toast.LENGTH_SHORT).show();
 
-                showNoLinkView();
-//                checkCameraConnection();
+                viewModel.logoutDevice();
+
+                showEmptyCameraView();
             }
         });
-
-//        timer.schedule(new TimerTask() {
-//            @Override
-//            public void run() {
-//                if (viewModel.isCameraConnected().getValue()) {
-//                    return;
-//                }
-//
-//                checkCameraConnection();
-//            }
-//        }, 0, 1000);
 
         checkCameraConnection();
 
@@ -422,20 +418,20 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
             // 判断是否有这个权限，是返回PackageManager.PERMISSION_GRANTED，否则是PERMISSION_DENIED
             // 这里我们要给应用授权所以是!= PackageManager.PERMISSION_GRANTED
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                Log.i("[USBDemo]", "未获得读写权限");
+                Log.i(TAG, "未获得读写权限");
                 // 如果应用之前请求过此权限但用户拒绝了请求,且没有选择"不再提醒"选项 (后显示对话框解释为啥要这个权限)，此方法将返回 true。
                 if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                    Log.i("[USBDemo]", "用户永久拒绝权限申请");
+                    Log.i(TAG, "用户永久拒绝权限申请");
                 } else {
-                    Log.i("[USBDemo]", "申请权限");
+                    Log.i(TAG, "申请权限");
                     // requestPermissions以标准对话框形式请求权限。123是识别码（任意设置的整型），用来识别权限。应用无法配置或更改此对话框。
                     //当应用请求权限时，系统将向用户显示一个对话框。当用户响应时，系统将调用应用的 onRequestPermissionsResult() 方法，向其传递用户响应。您的应用必须替换该方法，以了解是否已获得相应权限。回调会将您传递的相同请求代码传递给 requestPermissions()。
                     ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
                 }
             }
-            Log.i("[USBDemo]", "已获得读写权限");
+            Log.i(TAG, "已获得读写权限");
         } else {
-            Log.i("[USBDemo]", "无需动态申请");
+            Log.i(TAG, "无需动态申请");
         }
     }
 
@@ -445,20 +441,20 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
             // 判断是否有这个权限，是返回PackageManager.PERMISSION_GRANTED，否则是PERMISSION_DENIED
             // 这里我们要给应用授权所以是!= PackageManager.PERMISSION_GRANTED
             if (ContextCompat.checkSelfPermission(this, sPermission) != PackageManager.PERMISSION_GRANTED) {
-                Log.i("[USBDemo]", "未获得权限");
+                Log.i(TAG, "未获得权限");
                 // 如果应用之前请求过此权限但用户拒绝了请求,且没有选择"不再提醒"选项 (后显示对话框解释为啥要这个权限)，此方法将返回 true。
                 if (ActivityCompat.shouldShowRequestPermissionRationale(this, sPermission)) {
-                    Log.i("[USBDemo]", "用户永久拒绝权限申请");
+                    Log.i(TAG, "用户永久拒绝权限申请");
                 } else {
-                    Log.i("[USBDemo]", "申请权限");
+                    Log.i(TAG, "申请权限");
                     // requestPermissions以标准对话框形式请求权限。123是识别码（任意设置的整型），用来识别权限。应用无法配置或更改此对话框。
                     //当应用请求权限时，系统将向用户显示一个对话框。当用户响应时，系统将调用应用的 onRequestPermissionsResult() 方法，向其传递用户响应。您的应用必须替换该方法，以了解是否已获得相应权限。回调会将您传递的相同请求代码传递给 requestPermissions()。
                     ActivityCompat.requestPermissions(this, new String[]{sPermission}, 100);
                 }
             }
-            Log.i("[USBDemo]", "已获得权限");
+            Log.i(TAG, "已获得权限");
         } else {
-            Log.i("[USBDemo]", "无需动态申请");
+            Log.i(TAG, "无需动态申请");
         }
     }
 
@@ -481,10 +477,10 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
 
         if (thermalCameraView.startPreview(mHolder)) {
             //预览成功
-            Log.i("[USBDemo]", "StartPreview Success! iUserID:" + viewModel.getUserId());
+            Log.i(TAG, "StartPreview Success! iUserID:" + viewModel.getUserId());
             return true;
         } else {
-            Log.e("[USBDemo]", "StartPreview failed! error:" + viewModel.getUsbLastError());
+            Log.e(TAG, "StartPreview failed! error:" + viewModel.getUsbLastError());
             Toast.makeText(this, "StartPreview failed! error:" + viewModel.getUsbLastError(), Toast.LENGTH_SHORT).show();
             return false;
         }
@@ -493,9 +489,9 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
     //清理USBSDK资源
     private void cleanupUsbSdk() {
         if (viewModel.cleanUsbSdk()) {
-            Log.i("[USBDemo]", "USB_Cleanup Success!");
+            Log.i(TAG, "USB_Cleanup Success!");
         } else {
-            Log.e("[USBDemo]", "USB_Cleanup Failed!");
+            Log.e(TAG, "USB_Cleanup Failed!");
             Toast.makeText(this, "USB_Cleanup Failed!", Toast.LENGTH_SHORT).show();
         }
     }
@@ -542,11 +538,11 @@ public class CameraActivity extends AppCompatActivity implements SurfaceHolder.C
 
     }
 
-    private void showNoLinkView() {
+    private void showEmptyCameraView() {
         mBinding.layoutEmptyCamera.setVisibility(View.VISIBLE);
     }
 
-    private void hideNoLinkView() {
+    private void hideEmptyCameraView() {
         mBinding.layoutEmptyCamera.setVisibility(View.GONE);
     }
 

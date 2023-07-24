@@ -28,14 +28,12 @@ class CameraActivityViewModel(application: Application) : AndroidViewModel(appli
     var isUsbSdkInit = false //是否初始化
         private set
 
-    //是否连接相机
-    val isCameraConnected = MutableLiveData(false)
+    private var userId = JavaInterface.USB_INVALID_USER_ID //当前登录的设备句柄
+    fun getUserId(): Int {
+        return userId
+    }
 
-    var userId = JavaInterface.USB_INVALID_USER_ID //当前登录的设备句柄
-        private set
-
-
-//    val isCameraConnected = MutableLiveData(false)
+    val curUserId = MutableLiveData(JavaInterface.USB_INVALID_USER_ID) //当前登录的设备句柄
 
     private var defaultLoginDevice = 0 //默认登录第一个设备
 
@@ -122,6 +120,8 @@ class CameraActivityViewModel(application: Application) : AndroidViewModel(appli
         //获取设备信息
         userId = JavaInterface.getInstance().USB_Login(loginInfo, deviceRegRes)
 
+        curUserId.value = userId
+
         if (userId != JavaInterface.USB_INVALID_USER_ID) {
             //登录成功
             Log.i(Constant.TAG_DEBUG, "LoginDeviceWithFd Success! iUserID:" + userId +
@@ -129,10 +129,10 @@ class CameraActivityViewModel(application: Application) : AndroidViewModel(appli
                         " dwVID:" + loginInfo.dwVID +
                         " dwPID:" + loginInfo.dwPID +
                         " dwFd:" + loginInfo.dwFd)
-            isCameraConnected.value = true
+//            isCameraConnected.value = true
             return true
         } else {
-            isCameraConnected.value = false
+//            isCameraConnected.value = false
             Log.e(
                 Constant.TAG_DEBUG,
                 "LoginDeviceWithFd failed! error:" + getUsbLastError() +
@@ -167,13 +167,16 @@ class CameraActivityViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun cleanUsbSdk(): Boolean {
-        isCameraConnected.value = false
-
+//        isCameraConnected.value = false
         return JavaInterface.getInstance().USB_Cleanup()
     }
 
     //注销设备
     fun logoutDevice(): Boolean {
+//        isCameraConnected.value = false
+
+        curUserId.value = JavaInterface.USB_INVALID_USER_ID
+
         return if (JavaInterface.getInstance().USB_Logout(userId)) {
             //登录成功
             Log.i(Constant.TAG_DEBUG, "USB_Logout Success! iUserID: $userId")

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.moyear">
+    package="com.moyear" >
 
     <uses-sdk
         android:minSdkVersion="21"
@@ -8,7 +8,9 @@
 
     <uses-permission android:name="android.permission.RESTART_PACKAGES" />
     <uses-permission android:name="android.permission.CAMERA" />
+
     <uses-feature android:name="android.hardware.camera.any" />
+
     <uses-permission android:name="android.permission.USB_PERMISSION" />
 
     <uses-feature
@@ -36,35 +38,39 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.App">
+        android:theme="@style/Theme.App" >
         <activity
-            android:name="com.moyear.activity.GalleryActivity"
-            android:theme="@style/Theme.App.Dark"
-            android:exported="false" />
+            android:name=".activity.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.App.Dark" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity
-            android:name="com.moyear.activity.SettingsActivity"
+            android:name=".activity.GalleryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.App.Dark" />
+        <activity
+            android:name=".activity.SettingsActivity"
             android:exported="false"
             android:label="@string/title_activity_settings" />
         <activity
-            android:name="com.moyear.activity.CameraActivity"
+            android:name=".activity.CameraActivity"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.App.Dark">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.App.Dark" >
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
             </intent-filter>
-
             <meta-data
                 android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
                 android:resource="@xml/device_filter" />
         </activity>
         <activity
-            android:name="com.moyear.activity.MainActivity"
-            android:launchMode="singleTask">
+            android:name=".activity.DemoActivity"
+            android:launchMode="singleTask" >
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
             </intent-filter>

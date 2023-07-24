@@ -6,6 +6,10 @@ import com.moyear.utils.ConvertUtils
 
 class StreamBytes(private val rawBytes: ByteArray?) {
 
+    fun getRawBytes(): ByteArray? {
+        return rawBytes
+    }
+
     fun getYuvBytes(): ByteArray? {
         if (rawBytes == null) return null
 

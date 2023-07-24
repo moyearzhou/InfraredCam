@@ -208,11 +208,11 @@ class ShootView : View {
             }
 
             override fun onAnimationEnd(p0: Animator?) {
-                if (option == OPTION_TAKE_VIDEO) {
-                    option = OPTION_VIDEO_RECORDING
-                } else if (option == OPTION_VIDEO_RECORDING) {
-                    option = OPTION_TAKE_VIDEO
-                }
+//                if (option == OPTION_TAKE_VIDEO) {
+//                    option = OPTION_VIDEO_RECORDING
+//                } else if (option == OPTION_VIDEO_RECORDING) {
+//                    option = OPTION_TAKE_VIDEO
+//                }
 
                 animEndRadius = drawRadius
             }

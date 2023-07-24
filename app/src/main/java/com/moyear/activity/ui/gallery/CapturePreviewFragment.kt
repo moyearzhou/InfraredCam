@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.PopupMenu
 import androidx.fragment.app.Fragment
@@ -19,6 +20,7 @@ import com.moyear.core.Infrared
 import com.moyear.core.StreamBytes
 import com.moyear.databinding.FragmentCapturePreviewBinding
 import com.moyear.global.GalleryManager
+import com.moyear.global.toast
 import java.io.File
 import java.io.FileInputStream
 
@@ -56,7 +58,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         mBinding.btnInfo.setOnClickListener(this)
 
         galleryModel.currentPreview.observe(viewLifecycleOwner) {
-            Log.d(Constant.TAG_DEBUG, "Show capture: ${it.name}")
+//            Log.d(Constant.TAG_DEBUG, "Show capture: ${it.name}")
             showCapture(it)
         }
 
@@ -94,8 +96,17 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
         mBinding.txtCaptureTitle.text = captureInfo.name
 
-        val imgFile = File(captureInfo.path)
+        if (captureInfo.type == Infrared.CAPTURE_PHOTO) {
+            mBinding.imgPlay.visibility = View.GONE
+        } else if (captureInfo.type == Infrared.CAPTURE_VIDEO) {
+            mBinding.imgPlay.visibility = View.VISIBLE
+        }
 
+        mBinding.imgPlay.setOnClickListener {
+            toast("播放视频，代码待写！！！")
+        }
+
+        val imgFile = Infrared.findCaptureImageFile(captureInfo)
         Glide.with(requireContext())
             .load(imgFile)
             .into(mBinding.imgCapture)
@@ -108,6 +119,9 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
             R.id.btn_back -> navigateToGallery()
             R.id.btn_more -> showMoreMenu(p0)
             R.id.btn_delete -> showDeleteConfirmDialog()
+            R.id.btn_edit -> toast("代码待写！！！")
+            R.id.btn_send -> toast("代码待写！！！")
+            R.id.btn_info -> toast("代码待写！！！")
         }
     }
 

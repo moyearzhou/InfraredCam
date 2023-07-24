@@ -29,7 +29,7 @@ class SettingsActivity : AppCompatActivity() {
         override fun onPreferenceTreeClick(preference: Preference): Boolean {
             when (preference.key) {
                 "view_demo" -> {
-                    val intent = Intent(requireContext(), MainActivity::class.java)
+                    val intent = Intent(requireContext(), DemoActivity::class.java)
                     startActivity(intent)
                     return true
                 }

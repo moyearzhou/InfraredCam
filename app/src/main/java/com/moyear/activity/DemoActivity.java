@@ -41,7 +41,7 @@ import java.io.InputStreamReader;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
+public class DemoActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
     private static final String MTK_NODE_FILE = "/sys/devices/platform/1000b000.pinctrl/mt_gpio";
     private static final String MTK_VDD5V_FILE = "/sys/devices/platform/winteam_gpio/vdd5v_en";
@@ -115,7 +115,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_demo);
 
         //创建MAX_DEVICE_NUM个设备信息对象
         for (int i = 0; i < JavaInterface.MAX_DEVICE_NUM; i++) {
@@ -474,7 +474,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_init:
                     if (m_bInit) {
                         Log.i("[USBDemo]", "Init Success");
-                        Toast.makeText(MainActivity.this, "Init Success", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "Init Success", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     //初始化USBSDK
@@ -483,7 +483,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_enum:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
 
@@ -493,7 +493,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_login:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
 
@@ -503,7 +503,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_logout:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     //注销设备
@@ -512,7 +512,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_upgrade:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     //注销设备
@@ -521,7 +521,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_upgradeState:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     //注销设备
@@ -530,7 +530,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_upgradeClose:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     //注销设备
@@ -539,7 +539,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_startPreview:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     if (!m_bPreview) {
@@ -561,7 +561,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_fileTransfer:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     //文件传输
@@ -570,7 +570,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_config:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     //参数配置
@@ -579,7 +579,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 case R.id.btn_cleanup:
                     if (!m_bInit) {
                         Log.i("[USBDemo]", "No Init");
-                        Toast.makeText(MainActivity.this, "No Init", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(DemoActivity.this, "No Init", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     //清理USBSDK资源

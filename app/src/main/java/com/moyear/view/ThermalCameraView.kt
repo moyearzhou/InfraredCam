@@ -9,6 +9,7 @@ import android.util.Log
 import android.util.Size
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import com.blankj.utilcode.util.TimeUtils
 import com.hcusbsdk.Interface.FStreamCallBack
 import com.hcusbsdk.Interface.JavaInterface
 import com.hcusbsdk.Interface.USB_FRAME_INFO
@@ -20,8 +21,10 @@ import com.moyear.BasicConfig
 import com.moyear.IFR_REALTIME_TM_OUTCOME_UPLOAD_INFO
 import com.moyear.core.StreamBytes
 import com.moyear.core.StreamBytes.Companion.fromBytes
+import com.moyear.core.record.StreamRecorder
 import com.moyear.utils.ImageUtils.Companion.yuvImage2JpegData
 import java.util.Arrays
+import java.util.Date
 
 class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder.Callback {
 
@@ -53,6 +56,13 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
 
     private var isPreview = false //预览状态： true-正在预览
 
+    /**
+     * 是否正在录制视频
+     */
+    var isRecording = false
+
+    private val videoRecorder = StreamRecorder.getInstance()
+
     private var tempInfo: IFR_REALTIME_TM_OUTCOME_UPLOAD_INFO? = IFR_REALTIME_TM_OUTCOME_UPLOAD_INFO()
 
     var streamProcessor: StreamProcessor? = null
@@ -65,11 +75,6 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
     }
 
     var captureMode = CaptureMode.MODE_CAPTURE
-
-//    /**
-//     * 背景颜色
-//     */
-//    var backgroundColor: Int = Color.TRANSPARENT
 
     override fun surfaceCreated(surfaceHolder: SurfaceHolder) {}
 
@@ -185,6 +190,7 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
         }
         setThermalStreamParam(userId)
         isPreview = true
+
         return true
     }
 
@@ -202,10 +208,11 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
 
             // 更新当前的Frame
             currentFrame = data
-            Log.i("test", "invoke: length " + data.size)
+            Log.i(TAG, "invoke: length " + data.size)
             if (!holder.surface.isValid) {
                 return
             }
+
             val streamBytes = fromBytes(data)
             if (streamProcessor != null) {
                 streamProcessor!!.onStream(streamBytes)
@@ -220,7 +227,18 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
                 val jpegData = yuvImage2JpegData(dataYUV, Size(yuvImgWidth, yuvImgHeight))
                 drawJpegPicture(jpegData)
             }
+
+            if (isRecording) {
+                onStreamCapture(streamBytes)
+            }
         }
+    }
+
+    private fun onStreamCapture(streamBytes: StreamBytes) {
+        if (isRecording) {
+            videoRecorder.popFrame(streamBytes)
+        }
+
     }
 
     private fun drawJpegPicture(jpegData: ByteArray?) {
@@ -235,7 +253,7 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
         )
         val outWidth = decodeOptions.outWidth.toFloat()
         val outHeight = decodeOptions.outHeight.toFloat()
-        //        Log.e(TAG, "drawJpegPicture: outWidth=$outWidth outHeight=$outHeight")
+        //Log.e(TAG, "drawJpegPicture: outWidth=$outWidth outHeight=$outHeight")
 
         val screenWidth = holder.surfaceFrame.width()
         val screenHeight = holder.surfaceFrame.height()
@@ -254,7 +272,7 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
             ((screenHeight - outHeight * scale) / 2 + outHeight * scale).toInt()
         )
         val canvas = holder.lockCanvas() //获取目标画图区域，无参数表示锁定的是全部绘图区
-        canvas.drawColor(Color.BLACK) //清除上次绘制的内容
+//        canvas.drawColor(Color.BLACK) //清除上次绘制的内容
         val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
         canvas?.drawBitmap(bitmap, null, rect, null)
         holder.unlockCanvasAndPost(canvas) //解除锁定并显示
@@ -315,6 +333,24 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
             )
             false
         }
+    }
+
+    fun startRecord() {
+        if (isRecording) {
+            return
+        }
+        val fileNameWithoutSuffix = TimeUtils.date2String(Date(System.currentTimeMillis()), "yyyyMMddHHmmss") + "_" + ((Math.random() * 9 + 1) * 1000).toInt()
+        val videoName = "$fileNameWithoutSuffix.video"
+
+        val recordConfig = StreamRecorder.RecordConfig(videoName, mDwStreamWidth, mDwStreamHeight, frameRate = 25, System.currentTimeMillis())
+        videoRecorder.beginRecord(recordConfig)
+
+        isRecording = true
+    }
+
+    fun endRecord() {
+
+        isRecording = false
     }
 
     //获取最高温

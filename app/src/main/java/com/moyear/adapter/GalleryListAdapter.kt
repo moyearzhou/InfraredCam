@@ -44,22 +44,34 @@ class GalleryListAdapter: RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             onClickCallBack?.onClick(capture)
         }
 
-        val imgFile = File(capture.path)
-
+        // 正方形样式显示
         val param = viewHolder.imgCapture.layoutParams
         param.height = thumbnailSize
         param.width = thumbnailSize
         viewHolder.imgCapture.layoutParams = param
 
-        Glide.with(viewHolder.itemView)
-            .load(imgFile)
-            .centerCrop()
-            .into(viewHolder.imgCapture)
+
+        viewHolder.imgPlay.let {
+            if (capture.type == Infrared.CAPTURE_PHOTO) {
+                it.visibility = View.GONE
+
+            } else if (capture.type == Infrared.CAPTURE_VIDEO) {
+                it.visibility = View.VISIBLE
+            }
+        }
+
+
+        var imgFile = Infrared.findCaptureImageFile(capture)
+        imgFile?.let {
+            Glide.with(viewHolder.itemView)
+                .load(it)
+                .centerCrop()
+                .into(viewHolder.imgCapture)
+        }
     }
 
 
     fun updateData(list: List<Infrared.CaptureInfo>) {
-
         data.clear()
         data.addAll(list)
         notifyDataSetChanged()
@@ -67,6 +79,7 @@ class GalleryListAdapter: RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     class CaptureHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val imgCapture: ImageView = itemView.findViewById(R.id.img_capture)
+        val imgPlay: ImageView = itemView.findViewById(R.id.img_play)
 
     }
 
