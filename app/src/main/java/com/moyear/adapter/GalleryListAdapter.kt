@@ -63,6 +63,8 @@ class GalleryListAdapter: RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         var imgFile = Infrared.findCaptureImageFile(capture)
         imgFile?.let {
+            if (!it.exists()) return@let
+
             Glide.with(viewHolder.itemView)
                 .load(it)
                 .centerCrop()

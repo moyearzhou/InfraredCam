@@ -12,7 +12,7 @@ import com.hcusbsdk.Interface.USB_DEVICE_REG_RES
 import com.hcusbsdk.Interface.USB_USER_LOGIN_INFO
 import com.moyear.Constant
 import com.moyear.PreferenceManager
-import com.moyear.activity.CameraActivity.MODE_TAKE_PHOTO
+import com.moyear.activity.CameraActivity.Companion.MODE_TAKE_PHOTO
 import com.moyear.core.Infrared
 import com.moyear.global.AppPath
 import com.moyear.global.GalleryManager

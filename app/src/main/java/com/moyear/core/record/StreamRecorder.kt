@@ -9,8 +9,24 @@ import com.moyear.core.StreamBytes
 import com.moyear.global.AppPath
 import com.moyear.utils.ImageUtils
 import java.io.File
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.atomic.AtomicInteger
 
 class StreamRecorder {
+
+    class MyThreadFactory : ThreadFactory {
+
+        private var count = 1;
+
+        private val threadPrefix = "RecordSavingThread-"
+        override fun newThread(p0: Runnable?): Thread {
+            val thread = Thread(p0)
+            thread.name = threadPrefix + count++
+            return thread
+        }
+    }
 
     private constructor()
 
@@ -24,7 +40,9 @@ class StreamRecorder {
 
     private var curVideo: File ?= null
 
-    private var frameNum = -1
+    private var frameNum = AtomicInteger(-1)
+
+    private val mThreadPool: ExecutorService = Executors.newFixedThreadPool(3, MyThreadFactory())
 
     data class RecordConfig(var name: String,
                             var frameWidth: Int,
@@ -53,7 +71,6 @@ class StreamRecorder {
 
         // todo：创建一个新目录目录, 以及创建视频配置文件
         initVideoFile(videoName)
-
     }
 
     private fun initVideoFile(name: String) {
@@ -80,7 +97,7 @@ class StreamRecorder {
         FileIOUtils.writeFileFromString(configFile, configJson)
 
         isVideoFileCreated = true
-        frameNum = 0
+        frameNum.set(0)
     }
 
     fun popFrame(streamBytes: StreamBytes) {
@@ -99,28 +116,37 @@ class StreamRecorder {
             return
         }
 
-        if (frameNum < 0) {
+        if (frameNum.get() < 0) {
             Log.d(TAG, "Error frame num.")
             return
         }
 
-        // 生成8位的文件名，不足用0填充
-        val frameName = String.format("%0${8}d", frameNum)
+        // todo 把这个放在线程池里面进行
+        mThreadPool.submit {
+            Log.d(TAG, "当前frameNum： ${frameNum.get()}   执行在线程 ${Thread.currentThread()}")
+
+            // 生成8位的文件名，不足用0填充
+            val frameName = String.format("%0${8}d", frameNum.get())
+
+            if (frameNum.get() == 0) {
+                createVideoThumbnail(streamBytes)
+            }
+
+            saveFrameFile(frameName, streamBytes)
+
+//            frameNum += 1
+            frameNum.getAndIncrement()
+        }
+    }
+
+    private fun saveFrameFile(frameName: String, streamBytes: StreamBytes) {
         val frameFile = File(curVideo, frameName)
         frameFile.createNewFile()
 
-        if (frameNum == 0) {
-            createVideoThumbnail(streamBytes)
-        }
-
         streamBytes.getRawBytes()?.let {
-
-
             FileIOUtils.writeFileFromBytesByChannel(frameFile, it, true)
-            Log.d(TAG, "Write new frame: ${frameNum}, file size is: ${it.size}")
+            Log.d(TAG, "Write new frame: ${frameNum} in ${Thread.currentThread().name}, file size is: ${it.size}")
         }
-
-        frameNum += 1
     }
 
     private fun createVideoThumbnail(streamBytes: StreamBytes) {
@@ -148,13 +174,21 @@ class StreamRecorder {
 
 
     fun endRecord() {
+        // todo 把临时序列变成压缩文件进行储存
+
         curVideo = null
 
-        frameNum = -1
+        frameNum.set(-1)
         recordConfig = null
 
         isVideoFileCreated = false
         isRecording = false
+
+        // todo 完成后删除创建的临时文件
+    }
+
+    fun onDestroy() {
+        mThreadPool.shutdown()
     }
 
     companion object {

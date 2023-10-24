@@ -1,9 +1,14 @@
 package com.moyear.activity.ui.gallery
 
+import android.graphics.BitmapFactory
+import android.graphics.Rect
 import android.os.Bundle
+import android.os.Handler
 import android.util.Log
+import android.util.Size
 import android.view.LayoutInflater
 import android.view.MenuItem
+import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
@@ -11,7 +16,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.PopupMenu
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.blankj.utilcode.util.FileIOUtils
 import com.bumptech.glide.Glide
+import com.moyear.BasicConfig
 import com.moyear.Constant
 import com.moyear.R
 import com.moyear.activity.OnGalleryNavigate
@@ -21,6 +28,7 @@ import com.moyear.core.StreamBytes
 import com.moyear.databinding.FragmentCapturePreviewBinding
 import com.moyear.global.GalleryManager
 import com.moyear.global.toast
+import com.moyear.utils.ImageUtils
 import java.io.File
 import java.io.FileInputStream
 
@@ -36,6 +44,10 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
     private var adapter: GalleryPreviewAdapter ?= null
 
+    private lateinit var mSurfaceView: SurfaceView
+
+    private val hanler = Handler()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewModel = ViewModelProvider(this).get(CapturePreviewViewModel::class.java)
@@ -49,6 +61,8 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         savedInstanceState: Bundle?
     ): View? {
         mBinding = FragmentCapturePreviewBinding.inflate(inflater, container, false)
+
+        mSurfaceView = mBinding.surfaceView
 
         mBinding.btnBack.setOnClickListener(this)
         mBinding.btnMore.setOnClickListener(this)
@@ -73,10 +87,6 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         mBinding.imgCapture.setOnClickListener {
             viewModel.showToolBar.value = !viewModel.showToolBar.value!!
         }
-
-//        mBinding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
-//        adapter = GalleryPreviewAdapter()
-//        mBinding.recyclerView.adapter = adapter
 
         return mBinding.root
     }
@@ -104,15 +114,92 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
         mBinding.imgPlay.setOnClickListener {
             toast("播放视频，代码待写！！！")
+
+            if (captureInfo.type != Infrared.CAPTURE_VIDEO) {
+                Log.d("CapturePreviewFragment", "unsupport opearation!")
+                return@setOnClickListener
+            }
+
+            val videoFile = File(captureInfo.path) ?: return@setOnClickListener
+
+            val frameRate = 25;
+            var frameDuration: Long = (1000 / frameRate).toLong()
+
+            for (file : File in videoFile.listFiles()!!) {
+                // 删除并返回
+                if (file.name.equals("config.json") || file.name.equals("thumb.jpg")) continue
+
+                hanler.postDelayed( {
+                    val bytes = FileIOUtils.readFile2BytesByChannel(file)
+
+                    val streamBytes = StreamBytes.fromBytes(bytes)
+
+                    // 将yuv数据转换成jpg数据，并显示在SurfaceView上
+                    val dataYUV = streamBytes.getYuvBytes()
+                    if (dataYUV != null) {
+                        val yuvImgWidth = BasicConfig.yuvImgWidth
+                        val yuvImgHeight = BasicConfig.yuvImgHeight
+                        val jpegData =
+                            ImageUtils.yuvImage2JpegData(dataYUV, Size(yuvImgWidth, yuvImgHeight))
+                        drawJpegPicture(jpegData)
+                    }
+
+                }, frameDuration)
+            }
+
         }
 
         val imgFile = Infrared.findCaptureImageFile(captureInfo)
-        Glide.with(requireContext())
-            .load(imgFile)
-            .into(mBinding.imgCapture)
+
+        if (imgFile != null && imgFile.exists()) {
+            Glide.with(requireContext())
+                .load(imgFile)
+                .into(mBinding.imgCapture)
+        }
+
+
 
 //        val index = galleryModel.indexOfCapture(capture.name)
     }
+
+
+    private fun drawJpegPicture(jpegData: ByteArray?) {
+        val decodeOptions = BitmapFactory.Options()
+        //只获取图像的边界参数, 不解析图像数据
+        decodeOptions.inJustDecodeBounds = true
+        BitmapFactory.decodeByteArray(
+            jpegData,
+            0,
+            jpegData!!.size,
+            decodeOptions
+        )
+        val outWidth = decodeOptions.outWidth.toFloat()
+        val outHeight = decodeOptions.outHeight.toFloat()
+        //Log.e(TAG, "drawJpegPicture: outWidth=$outWidth outHeight=$outHeight")
+
+        val screenWidth = mBinding.surfaceView.width
+        val screenHeight =  mBinding.surfaceView.height
+        val scaleWith = screenWidth / outWidth
+        val scaleHeight = screenHeight / outHeight
+        var scale = 0f
+        scale = if (scaleWith >= scaleHeight) {
+            scaleHeight
+        } else {
+            scaleWith
+        }
+        val rect = Rect(
+            (screenWidth - outWidth * scale).toInt() / 2,
+            (screenHeight - outHeight * scale).toInt() / 2,
+            ((screenWidth - outWidth * scale) / 2 + outWidth * scale).toInt(),
+            ((screenHeight - outHeight * scale) / 2 + outHeight * scale).toInt()
+        )
+        val canvas = mSurfaceView.holder.lockCanvas() //获取目标画图区域，无参数表示锁定的是全部绘图区
+//        canvas.drawColor(Color.BLACK) //清除上次绘制的内容
+        val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
+        canvas?.drawBitmap(bitmap, null, rect, null)
+        mSurfaceView.holder.unlockCanvasAndPost(canvas) //解除锁定并显示
+    }
+
 
     override fun onClick(p0: View?) {
         when (p0?.id) {
@@ -126,15 +213,17 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
     }
 
     private fun showDeleteConfirmDialog() {
-        val capture = galleryModel.currentPreview.value
-        val fileNameNoSuffix = capture?.name?.removeSuffix(".jpg") ?: ""
+        val capture = galleryModel.currentPreview.value ?: return
+
+
+//        val fileNameNoSuffix = capture.name.removeSuffix(".jpg") ?: ""
 
         val builder = AlertDialog.Builder(requireContext())
         builder.setTitle("删除")
             .setMessage("是否删除该热成像照片，此操作同时会删除所保存的原始数据，是否确定")
             .setPositiveButton("确定") {
                 _,_ ->
-                galleryModel.deleteCapture(fileNameNoSuffix)
+                galleryModel.deleteCapture(capture)
             }
             .setNegativeButton("取消", null)
             .show()

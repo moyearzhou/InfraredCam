@@ -238,7 +238,6 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
         if (isRecording) {
             videoRecorder.popFrame(streamBytes)
         }
-
     }
 
     private fun drawJpegPicture(jpegData: ByteArray?) {

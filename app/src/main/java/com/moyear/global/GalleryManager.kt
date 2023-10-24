@@ -71,6 +71,11 @@ class GalleryManager {
         return videoInfos
     }
 
+    fun getRecordFile(fileNameWithoutSuffix: String): File? {
+        val fullFileName = "$fileNameWithoutSuffix.video"
+        return File(AppPath.getPhotoDir(), fullFileName)
+    }
+
     fun getJpgFile(fileNameWithoutSuffix: String): File? {
         val fullFileName = "$fileNameWithoutSuffix.jpg"
         return File(AppPath.getPhotoDir(), fullFileName)
@@ -81,26 +86,52 @@ class GalleryManager {
         return File(AppPath.getRawDir(), fullFileName)
     }
 
-    fun deleteCapture(fileNameNoSuffix: String): Boolean {
+    fun deleteRawCapture(fileNameNoSuffix: String): Boolean {
         val rawStreamFile = getRawStreamFile(fileNameNoSuffix)
-        val jpgFile = getJpgFile(fileNameNoSuffix)
 
-        if (jpgFile == null) {
+        if (rawStreamFile == null) {
             Log.w(Constant.TAG_DEBUG, "Can not delete jpg: $fileNameNoSuffix for it is null.")
             return false
         }
-        if (rawStreamFile == null) {
+
+        if (rawStreamFile.delete()) {
+            Log.w(Constant.TAG_DEBUG, "Success to delete raw: ${rawStreamFile.path}.")
+        }
+
+        return true
+    }
+
+    fun deleteCapture(capture: Infrared.CaptureInfo): Boolean {
+        val fileNameNoSuffix = capture.name.removeSuffix(".jpg")
+
+        val jpgFile = getJpgFile(fileNameNoSuffix)
+        if (jpgFile == null) {
             Log.w(Constant.TAG_DEBUG, "Can not delete jpg: $fileNameNoSuffix for it is null.")
             return false
         }
 
         if (jpgFile.delete()) {
             Log.w(Constant.TAG_DEBUG, "Success to delete jpg: ${jpgFile.path}.")
+
+            deleteRawCapture(fileNameNoSuffix)
         }
-        if (rawStreamFile.delete()) {
-            Log.w(Constant.TAG_DEBUG, "Success to delete raw: ${jpgFile.path}.")
+        return true
+    }
+
+    fun deleteRecord(captureInfo: Infrared.CaptureInfo): Boolean {
+        val recordFile = File(captureInfo.path)
+        if (!recordFile.exists()) {
+            Log.w(Constant.TAG_DEBUG, "Can not delete capture: ${captureInfo.name} because it does not exist")
+            return false
         }
 
-        return true
+        val res = recordFile.deleteRecursively()
+        if (res) {
+            Log.w(Constant.TAG_DEBUG, "Success to delete capture: ${captureInfo.path}")
+        } else {
+            Log.w(Constant.TAG_DEBUG, "Error to delete capture: ${captureInfo.path}")
+        }
+
+        return res
     }
 }

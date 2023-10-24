@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="画面">
+
+        <SwitchPreferenceCompat
+            app:key="instant_stream"
+            app:defaultValue="true"
+            app:title="即时画面渲染" />
+
+        <ListPreference
+            app:defaultValue="bottom"
+            app:entries="@array/legend_position_entries"
+            app:entryValues="@array/legend_position_values"
+            app:key="legend_position"
+            app:title="画面分辨率"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            app:defaultValue="bottom"
+            app:entries="@array/legend_position_entries"
+            app:entryValues="@array/legend_position_values"
+            app:key="legend_position"
+            app:title="码流分辨率"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>
