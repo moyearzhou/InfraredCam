@@ -1,12 +1,12 @@
 package com.moyear.activity
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 import com.moyear.R
 import com.moyear.activity.ui.gallery.CapturePreviewFragment
 import com.moyear.activity.ui.gallery.GalleryFragment
-import com.moyear.core.Infrared
 import com.moyear.callback.OnCapturePreview
+import com.moyear.core.Infrared
 
 class GalleryActivity() : AppCompatActivity(), OnGalleryNavigate, OnCapturePreview  {
 
@@ -48,7 +48,17 @@ class GalleryActivity() : AppCompatActivity(), OnGalleryNavigate, OnCapturePrevi
         navigateToGallery()
     }
 
+    override fun onBackPressed() {
+        if (supportFragmentManager.backStackEntryCount > 0) {
+            supportFragmentManager.popBackStack()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
+
 }
+
 
 interface OnGalleryNavigate {
     fun onNavigate()

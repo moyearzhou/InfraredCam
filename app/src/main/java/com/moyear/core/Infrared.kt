@@ -14,10 +14,10 @@ class Infrared {
         fun findCaptureImageFile(capture: CaptureInfo): File? {
             var imgFile: File ?= null
 
-            if (capture.type == Infrared.CAPTURE_PHOTO) {
+            if (capture.type == CAPTURE_PHOTO) {
                 imgFile = File(capture.path)
 
-            } else if (capture.type == Infrared.CAPTURE_VIDEO) {
+            } else if (capture.type == CAPTURE_VIDEO) {
                 val videoFile = File(capture.path)
                 imgFile = File(videoFile, "thumb.jpg")
             }

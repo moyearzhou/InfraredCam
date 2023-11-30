@@ -76,4 +76,6 @@ class GalleryFragment : Fragment() {
         mBinding.emptyView.visibility = View.VISIBLE
     }
 
+
+
 }

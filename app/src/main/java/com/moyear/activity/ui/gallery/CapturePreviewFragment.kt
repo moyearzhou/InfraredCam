@@ -3,23 +3,21 @@ package com.moyear.activity.ui.gallery
 import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.os.Bundle
-import android.os.Handler
 import android.util.Log
-import android.util.Size
 import android.view.LayoutInflater
 import android.view.MenuItem
+import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+import android.widget.SeekBar
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.PopupMenu
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.blankj.utilcode.util.FileIOUtils
-import com.bumptech.glide.Glide
-import com.moyear.BasicConfig
-import com.moyear.Constant
+import com.blankj.utilcode.util.ThreadUtils.runOnUiThread
+import com.moyear.ImagePlayerThread
 import com.moyear.R
 import com.moyear.activity.OnGalleryNavigate
 import com.moyear.adapter.GalleryPreviewAdapter
@@ -28,9 +26,9 @@ import com.moyear.core.StreamBytes
 import com.moyear.databinding.FragmentCapturePreviewBinding
 import com.moyear.global.GalleryManager
 import com.moyear.global.toast
-import com.moyear.utils.ImageUtils
 import java.io.File
 import java.io.FileInputStream
+
 
 class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
@@ -46,7 +44,13 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
     private lateinit var mSurfaceView: SurfaceView
 
-    private val hanler = Handler()
+    private var playerThread: ImagePlayerThread? = null
+
+    private var isThreadStarted = false
+
+    companion object {
+        const val TAG = "CapturePreviewFragment"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,11 +88,44 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
             }
         }
 
-        mBinding.imgCapture.setOnClickListener {
+        viewModel.isVideoLayout.observe(viewLifecycleOwner) {
+            if (it) {
+                initVideoView()
+            } else {
+                initPhotoView()
+            }
+        }
+
+        viewModel.isVideoPlaying.observe(viewLifecycleOwner) { isVideoPlaying ->
+            if (!isVideoPlaying && viewModel.isVideoLayout.value == true) {
+                mBinding.imgPlay.visibility = View.VISIBLE
+
+                mBinding.btnVideoPlay.setImageResource(R.drawable.ic_play_circle)
+            } else {
+                mBinding.imgPlay.visibility = View.GONE
+
+                mBinding.btnVideoPlay.setImageResource(R.drawable.ic_circle_pause)
+            }
+        }
+
+        mBinding.surfaceView.setOnClickListener {
             viewModel.showToolBar.value = !viewModel.showToolBar.value!!
         }
 
+        mBinding.btnVideoPlay.setOnClickListener {
+            if (viewModel.isVideoPlaying()) {
+                pauseVideo()
+            } else {
+                playVideo()
+            }
+        }
+
         return mBinding.root
+    }
+
+    private fun initPhotoView() {
+        mBinding.imgPlay.visibility = View.GONE
+        mBinding.videoControlBar.visibility = View.GONE
     }
 
     private fun hideToolBar() {
@@ -107,99 +144,193 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         mBinding.txtCaptureTitle.text = captureInfo.name
 
         if (captureInfo.type == Infrared.CAPTURE_PHOTO) {
-            mBinding.imgPlay.visibility = View.GONE
+            viewModel.isVideoLayout.value = false
         } else if (captureInfo.type == Infrared.CAPTURE_VIDEO) {
-            mBinding.imgPlay.visibility = View.VISIBLE
+            viewModel.isVideoLayout.value = true
         }
 
-        mBinding.imgPlay.setOnClickListener {
-            toast("播放视频，代码待写！！！")
+        initRenderThread(captureInfo)
 
-            if (captureInfo.type != Infrared.CAPTURE_VIDEO) {
+        val surfaceHolder = mSurfaceView.holder
+
+        surfaceHolder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                // 在这里进行渲染操作
+
+                val imgFile = Infrared.findCaptureImageFile(captureInfo!!)
+                if (imgFile != null && !imgFile.exists()) {
+                    Log.w(TAG, "NO Capture Image File Found")
+                    return
+                }
+
+                val jpegData = FileIOUtils.readFile2BytesByChannel(imgFile)
+
+                val decodeOptions = BitmapFactory.Options()
+                //只获取图像的边界参数, 不解析图像数据
+                decodeOptions.inJustDecodeBounds = true
+                BitmapFactory.decodeByteArray(
+                    jpegData,
+                    0,
+                    jpegData!!.size,
+                    decodeOptions
+                )
+                val outWidth = decodeOptions.outWidth.toFloat()
+                val outHeight = decodeOptions.outHeight.toFloat()
+                //Log.e(TAG, "drawJpegPicture: outWidth=$outWidth outHeight=$outHeight")
+
+                val screenWidth = mSurfaceView.width
+                val screenHeight =  mSurfaceView.height
+                val scaleWith = screenWidth / outWidth
+                val scaleHeight = screenHeight / outHeight
+                var scale = 0f
+                scale = if (scaleWith >= scaleHeight) {
+                    scaleHeight
+                } else {
+                    scaleWith
+                }
+                val rect = Rect(
+                    (screenWidth - outWidth * scale).toInt() / 2,
+                    (screenHeight - outHeight * scale).toInt() / 2,
+                    ((screenWidth - outWidth * scale) / 2 + outWidth * scale).toInt(),
+                    ((screenHeight - outHeight * scale) / 2 + outHeight * scale).toInt()
+                )
+                val canvas = holder.lockCanvas() //获取目标画图区域，无参数表示锁定的是全部绘图区
+                val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
+                canvas?.drawBitmap(bitmap, null, rect, null)
+                holder.unlockCanvasAndPost(canvas) //解除锁定并显示
+            }
+
+            override fun surfaceChanged(
+                holder: SurfaceHolder,
+                format: Int,
+                width: Int,
+                height: Int
+            ) {
+                // SurfaceView 大小发生改变时的操作
+            }
+
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                // SurfaceView 销毁时的操作
+            }
+        })
+
+
+    }
+
+    private fun pauseVideo() {
+        if (!viewModel.isVideoPlaying()) {
+            return
+        }
+        // todo 暂定视频播放
+        playerThread?.pausePlay()
+
+        viewModel.isVideoPlaying.value = false
+    }
+
+    fun convertFramesToTime(fps: Int, frameCount: Int): String {
+        val totalSeconds = frameCount / fps
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format("%02d:%02d", minutes, seconds)
+    }
+
+    private fun playVideo() {
+        if (viewModel.isVideoPlaying()) {
+            return
+        }
+
+        if (!isThreadStarted) {
+            playerThread?.start()
+            isThreadStarted = true
+        }
+
+//        playerThread.start()
+        playerThread?.resumePlay()
+
+        viewModel.isVideoPlaying.value = true
+    }
+
+
+    private fun initVideoView() {
+        mBinding.imgPlay.visibility = View.VISIBLE
+        mBinding.videoControlBar.visibility = View.VISIBLE
+
+        mBinding.progressBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
+                playerThread?.skip(p1)
+            }
+
+            override fun onStartTrackingTouch(p0: SeekBar?) {
+            }
+
+            override fun onStopTrackingTouch(p0: SeekBar?) {
+            }
+        })
+
+    }
+
+    private fun initRenderThread(captureInfo: Infrared.CaptureInfo?) {
+
+        mBinding.imgPlay.setOnClickListener {
+//            toast("播放视频，代码待写！！！")
+
+            if (captureInfo?.type != Infrared.CAPTURE_VIDEO) {
                 Log.d("CapturePreviewFragment", "unsupport opearation!")
                 return@setOnClickListener
             }
 
-            val videoFile = File(captureInfo.path) ?: return@setOnClickListener
+            if (viewModel.isVideoPlaying()) {
+                pauseVideo()
+            } else {
+                playVideo()
+            }
+        }
 
-            val frameRate = 25;
-            var frameDuration: Long = (1000 / frameRate).toLong()
+        playerThread = ImagePlayerThread(mSurfaceView, 25)
+        playerThread?.setPlayConfig(captureInfo)
 
-            for (file : File in videoFile.listFiles()!!) {
-                // 删除并返回
-                if (file.name.equals("config.json") || file.name.equals("thumb.jpg")) continue
+//        playerThread?.setInitListener(object : ImagePlayerThread.InitListener {
+//            override fun init() {
+//                playerThread?.renderFile(captureInfo)
+//            }
+//        })
 
-                hanler.postDelayed( {
-                    val bytes = FileIOUtils.readFile2BytesByChannel(file)
-
-                    val streamBytes = StreamBytes.fromBytes(bytes)
-
-                    // 将yuv数据转换成jpg数据，并显示在SurfaceView上
-                    val dataYUV = streamBytes.getYuvBytes()
-                    if (dataYUV != null) {
-                        val yuvImgWidth = BasicConfig.yuvImgWidth
-                        val yuvImgHeight = BasicConfig.yuvImgHeight
-                        val jpegData =
-                            ImageUtils.yuvImage2JpegData(dataYUV, Size(yuvImgWidth, yuvImgHeight))
-                        drawJpegPicture(jpegData)
-                    }
-
-                }, frameDuration)
+        playerThread?.setPauseCallback(object : ImagePlayerThread.OperateCall {
+            override fun onStart() {
+//                showVideoControlBar()
             }
 
-        }
+            override fun onPlay(progress: Int, total: Int) {
+                mBinding.progressBar.progress = (100 * progress / total)
 
-        val imgFile = Infrared.findCaptureImageFile(captureInfo)
+                val curTime = convertFramesToTime(25, progress)
+                val totalTime = convertFramesToTime(25, total)
 
-        if (imgFile != null && imgFile.exists()) {
-            Glide.with(requireContext())
-                .load(imgFile)
-                .into(mBinding.imgCapture)
-        }
+                runOnUiThread {
+                    mBinding.txtVideoTime.text = "$curTime/$totalTime"
+                }
 
+            }
+            override fun onPause() {
+                mBinding.btnVideoPlay.visibility = View.VISIBLE
 
+            }
 
-//        val index = galleryModel.indexOfCapture(capture.name)
+            override fun onStop() {
+                mBinding.btnVideoPlay.visibility = View.VISIBLE
+            }
+        })
+
+//        playerThread.start()
+
     }
 
+    override fun onPause() {
+        super.onPause()
 
-    private fun drawJpegPicture(jpegData: ByteArray?) {
-        val decodeOptions = BitmapFactory.Options()
-        //只获取图像的边界参数, 不解析图像数据
-        decodeOptions.inJustDecodeBounds = true
-        BitmapFactory.decodeByteArray(
-            jpegData,
-            0,
-            jpegData!!.size,
-            decodeOptions
-        )
-        val outWidth = decodeOptions.outWidth.toFloat()
-        val outHeight = decodeOptions.outHeight.toFloat()
-        //Log.e(TAG, "drawJpegPicture: outWidth=$outWidth outHeight=$outHeight")
-
-        val screenWidth = mBinding.surfaceView.width
-        val screenHeight =  mBinding.surfaceView.height
-        val scaleWith = screenWidth / outWidth
-        val scaleHeight = screenHeight / outHeight
-        var scale = 0f
-        scale = if (scaleWith >= scaleHeight) {
-            scaleHeight
-        } else {
-            scaleWith
-        }
-        val rect = Rect(
-            (screenWidth - outWidth * scale).toInt() / 2,
-            (screenHeight - outHeight * scale).toInt() / 2,
-            ((screenWidth - outWidth * scale) / 2 + outWidth * scale).toInt(),
-            ((screenHeight - outHeight * scale) / 2 + outHeight * scale).toInt()
-        )
-        val canvas = mSurfaceView.holder.lockCanvas() //获取目标画图区域，无参数表示锁定的是全部绘图区
-//        canvas.drawColor(Color.BLACK) //清除上次绘制的内容
-        val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
-        canvas?.drawBitmap(bitmap, null, rect, null)
-        mSurfaceView.holder.unlockCanvasAndPost(canvas) //解除锁定并显示
+        // todo 解决返回后
+        playerThread?.pausePlay()
     }
-
 
     override fun onClick(p0: View?) {
         when (p0?.id) {
@@ -214,7 +345,6 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
     private fun showDeleteConfirmDialog() {
         val capture = galleryModel.currentPreview.value ?: return
-
 
 //        val fileNameNoSuffix = capture.name.removeSuffix(".jpg") ?: ""
 
@@ -288,5 +418,6 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         inputStream.close()
         return byteArray
     }
+
 
 }

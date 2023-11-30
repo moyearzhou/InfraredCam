@@ -8,4 +8,12 @@ class CapturePreviewViewModel(application: Application) : AndroidViewModel(appli
 
     val showToolBar = MutableLiveData(true)
 
+    val isVideoPlaying = MutableLiveData(false)
+
+    val isVideoLayout = MutableLiveData(false)
+
+    fun isVideoPlaying(): Boolean {
+        return isVideoPlaying.value == true
+    }
+
 }
