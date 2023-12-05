@@ -1,7 +1,10 @@
 package com.moyear.activity.ui.gallery
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
 import android.util.Log
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import com.moyear.core.Infrared
@@ -16,6 +19,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+
 
 class CapturePreviewViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -148,6 +152,24 @@ class CapturePreviewViewModel(application: Application) : AndroidViewModel(appli
             }
         }
         return size
+    }
+
+    fun shareCapture(context: Context, capture: Infrared.CaptureInfo) {
+        // todo 获取视频video文件，进行分享
+        // 获取要分享的文件
+        val file: File = File(capture.path)
+
+        // 获取FileProvider的URI
+        val fileUri = FileProvider.getUriForFile(context, "com.moyear.thermalcam.fileprovider", file)
+
+        // 创建分享文件的Intent
+        val shareIntent = Intent(Intent.ACTION_SEND)
+        shareIntent.type = "text/plain"
+        shareIntent.putExtra(Intent.EXTRA_STREAM, fileUri)
+        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+        // 启动分享的Activity
+        context.startActivity(Intent.createChooser(shareIntent, "文件分享"))
     }
 
 }

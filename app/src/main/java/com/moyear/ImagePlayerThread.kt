@@ -69,7 +69,6 @@ class ImagePlayerThread(
         currentFrame = 0
         isPlaying = false
 
-//        renderFile(captureInfo)
     }
 
     fun getFrameRate(): Int {
@@ -85,6 +84,9 @@ class ImagePlayerThread(
         operateCallback?.onPause()
     }
 
+    fun getTotalFrame(): Int {
+        return totalFrames
+    }
     fun setInitListener(initListener: InitListener) {
         this.initListener = initListener
     }

@@ -1,7 +1,5 @@
 package com.moyear.activity.ui.gallery
 
-import android.app.ProgressDialog
-import android.content.DialogInterface
 import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.os.Bundle
@@ -11,7 +9,6 @@ import android.view.MenuItem
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
-import android.view.View.OnClickListener
 import android.view.ViewGroup
 import android.widget.SeekBar
 import androidx.appcompat.app.AlertDialog
@@ -29,8 +26,6 @@ import com.moyear.core.StreamBytes
 import com.moyear.databinding.FragmentCapturePreviewBinding
 import com.moyear.global.GalleryManager
 import com.moyear.global.toast
-import com.sun.jna.StringArray
-import kotlinx.android.synthetic.main.layout_camera_not_linked.textView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -78,6 +73,8 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
         mBinding.btnBack.setOnClickListener(this)
         mBinding.btnMenu.setOnClickListener(this)
+
+        mBinding.btnShare.setOnClickListener(this)
 
         mBinding.btnDelete.setOnClickListener(this)
         mBinding.btnEdit.setOnClickListener(this)
@@ -297,11 +294,9 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         playerThread = ImagePlayerThread(mSurfaceView, 25)
         playerThread?.setPlayConfig(captureInfo)
 
-//        playerThread?.setInitListener(object : ImagePlayerThread.InitListener {
-//            override fun init() {
-//                playerThread?.renderFile(captureInfo)
-//            }
-//        })
+        val curTime = convertFramesToTime(25, 0)
+        val totalTime = convertFramesToTime(25, playerThread?.getTotalFrame() ?: 0)
+        mBinding.txtVideoTime.text = "$curTime/$totalTime"
 
         playerThread?.setPauseCallback(object : ImagePlayerThread.OperateCall {
             override fun onStart() {
@@ -346,9 +341,25 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
             R.id.btn_menu -> showMoreMenu(p0)
             R.id.btn_delete -> showDeleteConfirmDialog()
             R.id.btn_edit -> toast("代码待写！！！")
-            R.id.btn_send -> toast("代码待写！！！")
+            R.id.btn_share -> shareCapture()
             R.id.btn_more -> showMoreOperateMenu()
         }
+    }
+
+    private fun shareCapture() {
+        val capture = galleryModel.currentPreview.value ?: return
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("分享")
+            .setMessage("分享给其他应用")
+            .setPositiveButton("确定") { p0, p1 ->
+
+                viewModel.shareCapture(requireActivity(), capture)
+
+                p0?.dismiss()
+            }
+            .create()
+        dialog.show()
     }
 
     private fun showMoreOperateMenu() {
