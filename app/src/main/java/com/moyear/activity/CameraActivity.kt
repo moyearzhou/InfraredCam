@@ -72,7 +72,7 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         setContentView(mBinding!!.root)
         initCameraView()
         initCamModeTab()
-        mBinding!!.btnMore.setOnClickListener { view: View -> showMoreMenu(view) }
+        mBinding!!.btnMenu.setOnClickListener { view: View -> showMoreMenu(view) }
         mBinding!!.imgGallery.setOnClickListener { view: View? ->
             val intent = Intent(this@CameraActivity, GalleryActivity::class.java)
             startActivity(intent)

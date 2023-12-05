@@ -1,5 +1,7 @@
 package com.moyear.activity.ui.gallery
 
+import android.app.ProgressDialog
+import android.content.DialogInterface
 import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.os.Bundle
@@ -9,6 +11,7 @@ import android.view.MenuItem
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
+import android.view.View.OnClickListener
 import android.view.ViewGroup
 import android.widget.SeekBar
 import androidx.appcompat.app.AlertDialog
@@ -26,6 +29,11 @@ import com.moyear.core.StreamBytes
 import com.moyear.databinding.FragmentCapturePreviewBinding
 import com.moyear.global.GalleryManager
 import com.moyear.global.toast
+import com.sun.jna.StringArray
+import kotlinx.android.synthetic.main.layout_camera_not_linked.textView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileInputStream
 
@@ -69,11 +77,11 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         mSurfaceView = mBinding.surfaceView
 
         mBinding.btnBack.setOnClickListener(this)
-        mBinding.btnMore.setOnClickListener(this)
+        mBinding.btnMenu.setOnClickListener(this)
 
         mBinding.btnDelete.setOnClickListener(this)
         mBinding.btnEdit.setOnClickListener(this)
-        mBinding.btnInfo.setOnClickListener(this)
+        mBinding.btnMore.setOnClickListener(this)
 
         galleryModel.currentPreview.observe(viewLifecycleOwner) {
 //            Log.d(Constant.TAG_DEBUG, "Show capture: ${it.name}")
@@ -335,12 +343,67 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
     override fun onClick(p0: View?) {
         when (p0?.id) {
             R.id.btn_back -> navigateToGallery()
-            R.id.btn_more -> showMoreMenu(p0)
+            R.id.btn_menu -> showMoreMenu(p0)
             R.id.btn_delete -> showDeleteConfirmDialog()
             R.id.btn_edit -> toast("代码待写！！！")
             R.id.btn_send -> toast("代码待写！！！")
-            R.id.btn_info -> toast("代码待写！！！")
+            R.id.btn_more -> showMoreOperateMenu()
         }
+    }
+
+    private fun showMoreOperateMenu() {
+        val listItem = arrayOf("压缩视频成zip", "详情")
+        val alertDialog = AlertDialog.Builder(requireContext())
+            .setTitle("更多")
+            .setItems(listItem) { dialog, position ->
+                when (position) {
+                    0 -> showCompressDialog()
+                    1 -> showCaptureInfo()
+                }
+                dialog.dismiss()
+            }
+            .create()
+        alertDialog.show()
+    }
+
+    private fun showCompressDialog() {
+        val capture = galleryModel.currentPreview.value ?: return
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("压缩视频zip")
+            .setMessage("正在压缩：${capture.name}")
+            .setCancelable(false)
+            .setPositiveButton("取消") { p0, p1 ->
+                // todo 取消压缩，并删除
+                CoroutineScope(Dispatchers.Main).launch {
+                    viewModel.cancelCompressJob(capture)
+                }
+
+                p0?.dismiss()
+            }
+            .create()
+        dialog.show()
+
+        viewModel.performCompressRawVideo(capture, {
+            compress, total ->
+
+            val progress = (compress.toDouble() * 100 / total.toDouble()).toInt()
+            runOnUiThread {
+                dialog.setMessage("正在压缩：${capture.name}，\n进度：$progress%")
+            }
+        }, {
+            runOnUiThread {
+                toast("压缩成功")
+                dialog.dismiss()
+            }
+        }, {
+            errorMsg ->
+            runOnUiThread {
+                toast("压缩失败：${errorMsg}")
+                dialog.dismiss()
+            }
+
+        })
     }
 
     private fun showDeleteConfirmDialog() {
