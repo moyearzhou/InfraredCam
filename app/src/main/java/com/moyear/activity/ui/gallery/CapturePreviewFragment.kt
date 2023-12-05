@@ -297,12 +297,6 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         playerThread = ImagePlayerThread(mSurfaceView, 25)
         playerThread?.setPlayConfig(captureInfo)
 
-//        playerThread?.setInitListener(object : ImagePlayerThread.InitListener {
-//            override fun init() {
-//                playerThread?.renderFile(captureInfo)
-//            }
-//        })
-
         playerThread?.setPauseCallback(object : ImagePlayerThread.OperateCall {
             override fun onStart() {
 //                showVideoControlBar()

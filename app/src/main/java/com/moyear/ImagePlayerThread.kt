@@ -43,9 +43,9 @@ class ImagePlayerThread(
 
     private var  operateCallback: OperateCall? = null
 
-    private var initListener: InitListener? = null
-
-    private var isInit = false
+//    private var initListener: InitListener? = null
+//
+//    private var isInit = false
 
     interface OperateCall {
         fun onStart()
@@ -85,9 +85,9 @@ class ImagePlayerThread(
         operateCallback?.onPause()
     }
 
-    fun setInitListener(initListener: InitListener) {
-        this.initListener = initListener
-    }
+//    fun setInitListener(initListener: InitListener) {
+//        this.initListener = initListener
+//    }
 
     fun setPauseCallback(operateCallback: OperateCall?) {
         this.operateCallback = operateCallback
@@ -106,10 +106,10 @@ class ImagePlayerThread(
     override fun run() {
         while (check()) {
 
-            if (!isInit) {
-                initListener?.init()
-                isInit = true
-            }
+//            if (!isInit) {
+//                initListener?.init()
+//                isInit = true
+//            }
 
             if (!isPlaying) continue
 
