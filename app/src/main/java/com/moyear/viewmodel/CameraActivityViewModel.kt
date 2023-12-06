@@ -210,7 +210,14 @@ class CameraActivityViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun fetchLastCapture() {
-        latestCaptureInfo.value = GalleryManager.getInstance().listCaptures().last()
+
+
+        val captures = GalleryManager.getInstance().listCaptures()
+        if (captures.isNotEmpty()) {
+            latestCaptureInfo.value = captures.last()
+        }
+
+
     }
 
 

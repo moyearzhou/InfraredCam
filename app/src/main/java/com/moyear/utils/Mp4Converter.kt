@@ -5,6 +5,7 @@ import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import com.moyear.core.Infrared
 import java.io.File
 import java.nio.ByteBuffer
 
@@ -22,7 +23,13 @@ class Mp4Converter {
 
     private var colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface
 
-    fun createVideoFromImages(imageFiles: List<File>, outputFilePath: String) {
+    fun createVideoFromImages(captureInfo: Infrared.CaptureInfo,
+                              outputFilePath: String,
+                              ) {
+
+        if (captureInfo.type == Infrared.CAPTURE_PHOTO) return
+
+
         val outputFile = File(outputFilePath)
         val outputFormat = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, frameWidth, frameHeight)
         outputFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat)
@@ -38,6 +45,10 @@ class Mp4Converter {
 
         val bufferInfo = MediaCodec.BufferInfo()
         var presentationTimeUs: Long = 0
+
+
+
+        val imageFiles = File(captureInfo.path).listFiles()
 
         for (i in imageFiles.indices) {
             val imageFile = imageFiles[i]
@@ -55,7 +66,7 @@ class Mp4Converter {
                 val outputData = ByteArray(bufferInfo.size)
 
                 if (outputBuffer == null) {
-                    return
+                    continue
                 }
 
                 outputBuffer.position(bufferInfo.offset)

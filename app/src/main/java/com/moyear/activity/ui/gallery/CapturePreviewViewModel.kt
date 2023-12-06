@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import com.moyear.core.Infrared
 import com.moyear.global.MyLog
+import com.moyear.utils.Mp4Converter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -33,6 +34,35 @@ class CapturePreviewViewModel(application: Application) : AndroidViewModel(appli
 
     fun isVideoPlaying(): Boolean {
         return isVideoPlaying.value == true
+    }
+
+    fun performConvertVideo(captureInfo: Infrared.CaptureInfo,
+                                onProgress: (Int, Int) -> Unit,
+                                onDone: () -> Unit,
+                                onError: (String) -> Unit) {
+
+        if (captureInfo.type != Infrared.CAPTURE_VIDEO) {
+            onError("视频类型错误")
+        }
+
+        val captureFile = File(captureInfo.path)
+
+        val outPath = captureFile.parent + File.separator + captureFile.nameWithoutExtension + ".mp4"
+        Log.d("生成视频mp4", "转换格式：${captureFile.path} to $outPath")
+
+        CoroutineScope(Dispatchers.IO).launch {
+
+            val converter = Mp4Converter()
+
+
+
+//            converter.createVideoFromImages(
+//
+//
+//            )
+
+
+        }
     }
 
     fun performCompressRawVideo(captureInfo: Infrared.CaptureInfo,
@@ -84,7 +114,7 @@ class CapturePreviewViewModel(application: Application) : AndroidViewModel(appli
 
         val outputStream = FileOutputStream(zipFile)
         val zipOutputStream = ZipOutputStream(outputStream)
-        zipOutputStream.setLevel(6) // 设置压缩级别，0-9，9为最高压缩率
+        zipOutputStream.setLevel(5) // 设置压缩级别，0-9，9为最高压缩率
 
         val totalSize = calculateFolderSize(sourceFolder)
 

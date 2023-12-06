@@ -43,7 +43,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
     var galleryNavigate : OnGalleryNavigate?= null
 
-    private var adapter: GalleryPreviewAdapter ?= null
+//    private var adapter: GalleryPreviewAdapter ?= null
 
     private lateinit var mSurfaceView: SurfaceView
 
@@ -295,7 +295,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         playerThread?.setPlayConfig(captureInfo)
 
         val curTime = convertFramesToTime(25, 0)
-        val totalTime = convertFramesToTime(25, playerThread?.getTotalFrame() ?: 0)
+        val totalTime = convertFramesToTime(25, playerThread?.getTotalFrames() ?: 0)
         mBinding.txtVideoTime.text = "$curTime/$totalTime"
 
         playerThread?.setPauseCallback(object : ImagePlayerThread.OperateCall {
@@ -363,18 +363,37 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
     }
 
     private fun showMoreOperateMenu() {
-        val listItem = arrayOf("压缩视频成zip", "详情")
+        val listItem = arrayOf("压缩视频成zip", "生成视频mp4", "详情")
         val alertDialog = AlertDialog.Builder(requireContext())
             .setTitle("更多")
             .setItems(listItem) { dialog, position ->
                 when (position) {
                     0 -> showCompressDialog()
-                    1 -> showCaptureInfo()
+                    1 -> showMp4Converter()
+                    2 -> showCaptureInfo()
                 }
                 dialog.dismiss()
             }
             .create()
         alertDialog.show()
+    }
+
+    private fun showMp4Converter() {
+        val capture = galleryModel.currentPreview.value ?: return
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("生成视频mp4")
+            .setMessage("正在视频mp4：${capture.name}")
+            .setCancelable(false)
+            .setPositiveButton("取消") { p0, p1 ->
+
+
+                p0?.dismiss()
+            }
+            .create()
+        dialog.show()
+
+
     }
 
     private fun showCompressDialog() {

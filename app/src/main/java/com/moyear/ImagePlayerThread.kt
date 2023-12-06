@@ -43,10 +43,6 @@ class ImagePlayerThread(
 
     private var  operateCallback: OperateCall? = null
 
-//    private var initListener: InitListener? = null
-//
-//    private var isInit = false
-
     interface OperateCall {
         fun onStart()
         fun onPlay(progress: Int, total: Int)
@@ -68,12 +64,14 @@ class ImagePlayerThread(
         this.captureInfo = captureInfo
         currentFrame = 0
         isPlaying = false
-
-//        renderFile(captureInfo)
     }
 
     fun getFrameRate(): Int {
         return frameRate
+    }
+
+    fun getTotalFrames(): Int {
+        return totalFrames;
     }
     fun resumePlay() {
         isPlaying = true
@@ -84,10 +82,6 @@ class ImagePlayerThread(
 
         operateCallback?.onPause()
     }
-
-//    fun setInitListener(initListener: InitListener) {
-//        this.initListener = initListener
-//    }
 
     fun setPauseCallback(operateCallback: OperateCall?) {
         this.operateCallback = operateCallback
@@ -105,11 +99,6 @@ class ImagePlayerThread(
 
     override fun run() {
         while (check()) {
-
-//            if (!isInit) {
-//                initListener?.init()
-//                isInit = true
-//            }
 
             if (!isPlaying) continue
 
