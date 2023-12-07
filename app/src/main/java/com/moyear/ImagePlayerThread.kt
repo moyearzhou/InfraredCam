@@ -9,6 +9,7 @@ import com.blankj.utilcode.util.FileIOUtils
 import com.moyear.core.Infrared
 import com.moyear.core.Infrared.CaptureInfo
 import com.moyear.core.StreamBytes
+import com.moyear.utils.CustomFileHelper
 import com.moyear.utils.ImageUtils
 import java.io.File
 
@@ -159,12 +160,10 @@ class ImagePlayerThread(
     private fun readyForPlay(): Boolean {
         if (!check()) return false
 
-        val videoFile = File(captureInfo!!.path)
-        images = videoFile.listFiles()?.filter {
-            // 过滤非图像文件
-//            if (file.name.equals("config.json") || file.name.equals("thumb.jpg")) continue
-            it.extension != "json" && it.name != "thumb.jpg"
-        }
+        if (captureInfo == null) return false
+
+        // 列出raw图像文件序列
+        images = CustomFileHelper.listRawFrames(captureInfo!!)
 
         totalFrames = images?.size ?: 0
         return true

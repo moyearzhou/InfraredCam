@@ -25,6 +25,7 @@ import com.moyear.core.Infrared
 import com.moyear.core.StreamBytes
 import com.moyear.databinding.FragmentCapturePreviewBinding
 import com.moyear.global.GalleryManager
+import com.moyear.global.MyLog
 import com.moyear.global.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,8 +43,6 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
     private lateinit var mBinding: FragmentCapturePreviewBinding
 
     var galleryNavigate : OnGalleryNavigate?= null
-
-//    private var adapter: GalleryPreviewAdapter ?= null
 
     private lateinit var mSurfaceView: SurfaceView
 
@@ -383,11 +382,20 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
         val dialog = AlertDialog.Builder(requireContext())
             .setTitle("生成视频mp4")
-            .setMessage("正在视频mp4：${capture.name}")
+            .setMessage("是否视频mp4：${capture.name}")
             .setCancelable(false)
-            .setPositiveButton("取消") { p0, p1 ->
+            .setPositiveButton("确定") { p0, p1 ->
 
+                viewModel.performConvertVideo(capture,
+                    { progress, total ->
 
+                        MyLog.d("转换进度：$progress/$total")
+                    },
+                    { file ->
+                        toast("转换成功")
+                    }, { errorMsg ->
+                        toast("转换失败：$errorMsg")
+                    })
                 p0?.dismiss()
             }
             .create()

@@ -38,7 +38,7 @@ class CapturePreviewViewModel(application: Application) : AndroidViewModel(appli
 
     fun performConvertVideo(captureInfo: Infrared.CaptureInfo,
                                 onProgress: (Int, Int) -> Unit,
-                                onDone: () -> Unit,
+                                onDone: (File) -> Unit,
                                 onError: (String) -> Unit) {
 
         if (captureInfo.type != Infrared.CAPTURE_VIDEO) {
@@ -51,16 +51,24 @@ class CapturePreviewViewModel(application: Application) : AndroidViewModel(appli
         Log.d("生成视频mp4", "转换格式：${captureFile.path} to $outPath")
 
         CoroutineScope(Dispatchers.IO).launch {
-
             val converter = Mp4Converter()
+            converter.setConvertListener(object : Mp4Converter.ConvertListener {
+                override fun onError(errorMsg: String) {
+                    onError(errorMsg)
+                }
 
+                override fun onProgress(progress: Int, total: Int) {
+                    onProgress(progress, total)
+                }
 
+                override fun onDone(file: File) {
+                    onDone(file)
+                }
 
-//            converter.createVideoFromImages(
-//
-//
-//            )
+            })
 
+            val outPath = captureFile.parent + File.separator + captureFile.nameWithoutExtension + ".mp4"
+            converter.createVideoFromImages(captureInfo, outPath)
 
         }
     }

@@ -12,4 +12,8 @@ object MyLog {
     fun d(msg: String?) {
         Log.d("ThermalCam", msg!!)
     }
+
+    fun e(msg: String?) {
+        Log.e("ThermalCam", msg!!)
+    }
 }
