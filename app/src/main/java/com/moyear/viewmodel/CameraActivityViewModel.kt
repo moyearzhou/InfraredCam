@@ -58,7 +58,8 @@ class CameraActivityViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun saveSdkLog(): Boolean {
-        return JavaInterface.getInstance().USB_SetLogToFile(JavaInterface.INFO_LEVEL, AppPath.DIR_LOG, 1)
+
+        return JavaInterface.getInstance().USB_SetLogToFile(JavaInterface.CLOSE_LEVEL, AppPath.DIR_LOG, 1)
     }
 
     fun getUsbLastError(): Int {

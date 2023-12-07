@@ -208,7 +208,7 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
 
             // 更新当前的Frame
             currentFrame = data
-            Log.i(TAG, "invoke: length " + data.size)
+//            Log.i(TAG, "invoke: length " + data.size)
             if (!holder.surface.isValid) {
                 return
             }
@@ -350,6 +350,9 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
     fun endRecord() {
 
         isRecording = false
+
+        // 结束录制
+        videoRecorder.endRecord()
     }
 
     //获取最高温

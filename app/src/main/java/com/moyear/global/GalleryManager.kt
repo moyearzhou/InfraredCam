@@ -1,6 +1,8 @@
 package com.moyear.global
 
 import android.util.Log
+import com.blankj.utilcode.util.FileIOUtils
+import com.blankj.utilcode.util.FileUtils
 import com.moyear.Constant
 import com.moyear.core.Infrared
 import java.io.File
@@ -125,11 +127,12 @@ class GalleryManager {
             return false
         }
 
-        val res = recordFile.deleteRecursively()
+        // todo 解决删除文件夹失败的问题
+        val res = FileUtils.deleteAllInDir(recordFile)
         if (res) {
-            Log.w(Constant.TAG_DEBUG, "Success to delete capture: ${captureInfo.path}")
+            MyLog.d("Success to delete capture: ${captureInfo.path}")
         } else {
-            Log.w(Constant.TAG_DEBUG, "Error to delete capture: ${captureInfo.path}")
+            Log.e(Constant.TAG_DEBUG, "Error to delete capture: ${captureInfo.path}")
         }
 
         return res

@@ -38,6 +38,7 @@ class GalleryModel(application: Application) : AndroidViewModel(application) {
             result = galleryManager.deleteCapture(capture)
         } else  if (capture.type == CAPTURE_VIDEO) {
             // 删除照片文件
+            // todo 删除大量文件夹需要耗时，使用携程操作
             result = galleryManager.deleteRecord(capture)
         }
 

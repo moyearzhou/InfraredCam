@@ -9,6 +9,7 @@ import com.blankj.utilcode.util.FileIOUtils
 import com.moyear.core.Infrared
 import com.moyear.core.Infrared.CaptureInfo
 import com.moyear.core.StreamBytes
+import com.moyear.global.MyLog
 import com.moyear.utils.CustomFileHelper
 import com.moyear.utils.ImageUtils
 import java.io.File
@@ -65,6 +66,8 @@ class ImagePlayerThread(
         this.captureInfo = captureInfo
         currentFrame = 0
         isPlaying = false
+
+        readyForPlay()
     }
 
     fun getFrameRate(): Int {
@@ -72,7 +75,7 @@ class ImagePlayerThread(
     }
 
     fun getTotalFrames(): Int {
-        return totalFrames;
+        return totalFrames
     }
     fun resumePlay() {
         isPlaying = true
@@ -127,7 +130,8 @@ class ImagePlayerThread(
 
             val imageFile = images?.get(currentFrame)
 
-            val bytes = FileIOUtils.readFile2BytesByChannel(imageFile)
+            val bytes = FileIOUtils.readFile2BytesByChannel(imageFile) ?: continue
+
             val streamBytes = StreamBytes.fromBytes(bytes)
 
             // 将yuv数据转换成jpg数据，并显示在SurfaceView上
@@ -162,24 +166,15 @@ class ImagePlayerThread(
 
         if (captureInfo == null) return false
 
+        MyLog.d("获取图像序列：${captureInfo!!.name}")
+
         // 列出raw图像文件序列
         images = CustomFileHelper.listRawFrames(captureInfo!!)
 
         totalFrames = images?.size ?: 0
+
+        MyLog.d("total frames：${totalFrames}")
         return true
-    }
-
-    fun renderFile(captureInfo: CaptureInfo?) {
-//        if (captureInfo == null) return
-
-        val imgFile = Infrared.findCaptureImageFile(captureInfo!!)
-        if (imgFile != null && !imgFile.exists()) {
-            Log.w(TAG, "NO findCaptureImageFile")
-            return
-        }
-
-        val jpgData = FileIOUtils.readFile2BytesByChannel(imgFile)
-        drawJpegPicture(jpgData)
     }
 
     fun skip(progress: Int) {

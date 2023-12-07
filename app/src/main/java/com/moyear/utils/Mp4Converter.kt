@@ -59,7 +59,6 @@ class Mp4Converter {
             return
         }
 
-
         var videoTrackIndex = -1;
 
         val outputFile = File(outputFilePath)
