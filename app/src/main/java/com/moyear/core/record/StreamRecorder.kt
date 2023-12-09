@@ -15,6 +15,7 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipEntry
@@ -56,6 +57,8 @@ class StreamRecorder {
     private var outputStream: FileOutputStream? = null
 
     private var zipOutputStream: ZipOutputStream? = null
+
+    private var future: Future<*>? = null
 
     data class RecordConfig(var name: String,
                             var frameWidth: Int,
@@ -112,11 +115,13 @@ class StreamRecorder {
         val configJson = gson.toJson(recordConfig)
         FileIOUtils.writeFileFromString(configFile, configJson)
 
-        val rawVideoName = if (name.endsWith(".raws")) {
-            name
-        } else {
-            "$name.raws"
-        }
+        val rawVideoName = videoName.replace("video", "raws")
+
+//            if (name.endsWith(".raws")) {
+//            name
+//        } else {
+//            "$name.raws"
+//        }
 
         // 实现方式2
         val zipFilePath = recordDirPath.path + File.separator + rawVideoName
@@ -153,7 +158,8 @@ class StreamRecorder {
         }
 
         // todo 把这个放在线程池里面进行
-        mThreadPool.submit {
+        // 提交任务
+        future = mThreadPool.submit {
             Log.d(TAG, "当前frameNum： ${frameNum.get()}   执行在线程 ${Thread.currentThread()}")
 
             // 生成8位的文件名，不足用0填充
@@ -177,11 +183,11 @@ class StreamRecorder {
             FileIOUtils.writeFileFromBytesByChannel(frameFile, it, true)
             Log.d(TAG, "Write new frame: ${frameNum} in ${Thread.currentThread().name}, file size is: ${it.size}")
 
-//            if (zipOutputStream != null) {
-//
-//                // 往压缩文件根目录中写入thumb.jpg的配置文件
-//                writeToZip(zipOutputStream!!, it.inputStream(), ZipEntry("raw/${frameName}"))
-//            }
+            if (zipOutputStream != null) {
+
+                // 往压缩文件根目录中写入thumb.jpg的配置文件
+                writeToZip(zipOutputStream!!, it.inputStream(), ZipEntry("raw/${frameName}"))
+            }
         }
     }
 
@@ -193,19 +199,6 @@ class StreamRecorder {
         zipOutputStream = ZipOutputStream(outputStream)
         zipOutputStream?.setLevel(5) // 设置压缩级别，0-9，9为最高压缩率
     }
-
-//    fun zipFolder(sourceFolderPath: String,
-//                  zipFilePath: String) {
-//
-//
-////        zipFolderRecursive(sourceFolder, sourceFolder.name, )
-//
-//
-//        // 压缩完成后把文件名改回去
-//        zipFile.renameTo(targetFile)
-//
-//        MyLog.d("Success to compress file: ${targetFile.name}")
-//    }
 
     private fun zipFolderRecursive(
         sourceFolder: File,
@@ -298,6 +291,16 @@ class StreamRecorder {
         isVideoFileCreated = false
         isRecording = false
 
+
+        // 如果有任务还在进行的话，则先等待任务完成
+        try {
+            future?.get() // 这里会阻塞，直到任务完成
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        //  关闭输入流的时候可能还有任务在处理，
+        //  如果直接关闭的话会闪退：java.util.ConcurrentModificationException
         // 关闭输出流
         zipOutputStream?.close()
         outputStream?.close()

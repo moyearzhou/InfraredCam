@@ -5,6 +5,7 @@ import com.blankj.utilcode.util.FileIOUtils
 import com.blankj.utilcode.util.FileUtils
 import com.moyear.Constant
 import com.moyear.core.Infrared
+import com.moyear.utils.CustomFileHelper
 import java.io.File
 
 class GalleryManager {
@@ -64,7 +65,7 @@ class GalleryManager {
 
         val videoInfos = mutableListOf<Infrared.CaptureInfo>()
         for (file in files) {
-            if (file.isFile || !file.name.endsWith(".video")) continue
+            if (!CustomFileHelper.isRawVideos(file)) continue
 
             val captureInfo = Infrared.CaptureInfo(file.name, file.path, Infrared.CAPTURE_VIDEO)
             videoInfos.add(captureInfo)
@@ -120,19 +121,22 @@ class GalleryManager {
         return true
     }
 
+    // 耗时操作需要异步进行
     fun deleteRecord(captureInfo: Infrared.CaptureInfo): Boolean {
         val recordFile = File(captureInfo.path)
         if (!recordFile.exists()) {
-            Log.w(Constant.TAG_DEBUG, "Can not delete capture: ${captureInfo.name} because it does not exist")
+            Log.w(Constant.TAG_DEBUG, "Can not delete record: ${captureInfo.name} because it does not exist")
             return false
         }
 
         // todo 解决删除文件夹失败的问题
-        val res = FileUtils.deleteAllInDir(recordFile)
+        val res = FileUtils.delete(recordFile)
+        // 删除文件夹本身
+        recordFile.delete()
         if (res) {
-            MyLog.d("Success to delete capture: ${captureInfo.path}")
+            MyLog.d("Success to delete record: ${captureInfo.path}")
         } else {
-            Log.e(Constant.TAG_DEBUG, "Error to delete capture: ${captureInfo.path}")
+            Log.e(Constant.TAG_DEBUG, "Error to delete record: ${captureInfo.path}")
         }
 
         return res

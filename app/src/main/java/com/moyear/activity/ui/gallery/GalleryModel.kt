@@ -9,6 +9,10 @@ import com.moyear.core.Infrared
 import com.moyear.core.Infrared.Companion.CAPTURE_PHOTO
 import com.moyear.core.Infrared.Companion.CAPTURE_VIDEO
 import com.moyear.global.GalleryManager
+import com.moyear.global.MyLog
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class GalleryModel(application: Application) : AndroidViewModel(application) {
 
@@ -31,33 +35,44 @@ class GalleryModel(application: Application) : AndroidViewModel(application) {
         galleryCaptures.value = list
     }
 
-    fun deleteCapture(capture: Infrared.CaptureInfo) {
-        var result = false
-        if (capture.type == CAPTURE_PHOTO) {
-//            val fileNameNoSuffix = capture.name.removeSuffix(".jpg")
-            result = galleryManager.deleteCapture(capture)
-        } else  if (capture.type == CAPTURE_VIDEO) {
-            // 删除照片文件
-            // todo 删除大量文件夹需要耗时，使用携程操作
-            result = galleryManager.deleteRecord(capture)
-        }
-
-        if (!result) {
-            Log.d(Constant.TAG_DEBUG, "Delete capture $capture false")
+    fun removeIndexAt(index: Int) {
+        if (index < 0 || index >= list.size) {
+            MyLog.e("Wrong index: $index")
             return
         }
 
-        // 删除当前照片后，通知正在预览的照片切换到下一张图片
-        val index = list.indexOf(capture)
-//        Log.d(Constant.TAG_DEBUG, "Find the capture to delete in: $index")
-        if (index >= 0) {
-            list.removeAt(index)
+        list.removeAt(index)
 
-            val newCapture = list[index]
-            currentPreview.value = newCapture
+        val newCapture = list[index]
+        currentPreview.postValue(newCapture)
 
-            // 更新相册列表
-            galleryCaptures.value = list
+        // 更新相册列表
+        galleryCaptures.postValue(list)
+    }
+
+    fun deleteCapture(capture: Infrared.CaptureInfo) {
+        // todo 删除大量文件夹需要耗时，使用携程操作
+        CoroutineScope(Dispatchers.IO).launch {
+            var result = false
+
+            if (capture.type == CAPTURE_PHOTO) {
+                result = galleryManager.deleteCapture(capture)
+            } else  if (capture.type == CAPTURE_VIDEO) {
+                // 删除照片文件
+                result = galleryManager.deleteRecord(capture)
+            }
+
+            if (!result) {
+                MyLog.d("Delete capture $capture false")
+                return@launch
+            }
+
+            // 删除当前照片后，通知正在预览的照片切换到下一张图片
+            val index = list.indexOf(capture)
+            MyLog.d("Find the capture to delete in: $index")
+            if (index >= 0) {
+                removeIndexAt(index)
+            }
         }
     }
 }
