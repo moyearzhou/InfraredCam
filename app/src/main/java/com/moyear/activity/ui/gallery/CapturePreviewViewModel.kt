@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import com.moyear.core.Infrared
 import com.moyear.global.MyLog
+import com.moyear.utils.CustomFileHelper
 import com.moyear.utils.Mp4Converter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -195,7 +196,19 @@ class CapturePreviewViewModel(application: Application) : AndroidViewModel(appli
     fun shareCapture(context: Context, capture: Infrared.CaptureInfo) {
         // todo 获取视频video文件，进行分享
         // 获取要分享的文件
-        val file: File = File(capture.path)
+
+        var file: File? = null
+
+        if (capture.type == Infrared.CAPTURE_VIDEO) {
+            file = CustomFileHelper.getRawVideoFile(capture)
+        } else {
+            file = File(capture.path)
+        }
+
+        if (file == null) {
+            MyLog.e("Null file to share")
+            return
+        }
 
         // 获取FileProvider的URI
         val fileUri = FileProvider.getUriForFile(context, "com.moyear.thermalcam.fileprovider", file)

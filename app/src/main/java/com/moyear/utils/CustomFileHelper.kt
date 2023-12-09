@@ -21,6 +21,27 @@ class CustomFileHelper {
 
         }
 
+        @JvmStatic
+        fun isRawVideos(file: File): Boolean {
+            if (file.isFile || !file.name.endsWith(".video")) return false
+
+            val configFile = File(file, "config.json")
+            if (!configFile.exists()) return false
+
+            return true
+        }
+
+        fun getRawVideoFile(captureInfo: Infrared.CaptureInfo): File? {
+            if (captureInfo.type == Infrared.CAPTURE_PHOTO) return null;
+
+            val captureFile = File(captureInfo.path)
+
+            val rawFileName = captureFile.nameWithoutExtension + ".raws"
+
+            return File(captureFile.parent, rawFileName)
+
+        }
+
     }
 
 }
