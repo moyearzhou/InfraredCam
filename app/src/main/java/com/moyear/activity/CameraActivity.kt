@@ -17,9 +17,11 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.util.Size
 import android.view.MenuItem
+import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
+import android.view.WindowManager
 import android.view.animation.AnimationUtils
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -42,6 +44,7 @@ import com.moyear.core.Infrared.CaptureInfo
 import com.moyear.core.Infrared.Companion.findCaptureImageFile
 import com.moyear.core.StreamBytes.Companion.fromBytes
 import com.moyear.databinding.ActivityCameraBinding
+import com.moyear.global.MyLog
 import com.moyear.global.toast
 import com.moyear.utils.ImageUtils.Companion.yuvImage2JpegData
 import com.moyear.view.ShootView
@@ -59,12 +62,25 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
     private var mSurfaceView: SurfaceView? = null
     var mHolder: SurfaceHolder? = null
 
-    private var viewModel: CameraActivityViewModel? = null
+    private lateinit var viewModel: CameraActivityViewModel
     private var recordTime = 0L
 
     private var handler: Handler? = null
     private val usbReceiver = UsbReceiver()
     private var isRecordingTiming = false
+
+    private val delayMillis = 10000L // 20秒
+
+    private val dimBrightness = 0.1f // 降低后的屏幕亮度
+    private val defaultBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE // 默认屏幕亮度
+
+    private val brightnessHandler = Handler(Looper.getMainLooper())
+
+    private val dimRunnable = Runnable {
+        MyLog.d("Dim screen brightness after no operation in $delayMillis")
+        // 降低屏幕亮度
+        setScreenBrightness(dimBrightness)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewModel = ViewModelProvider(this).get(CameraActivityViewModel::class.java)
@@ -93,22 +109,32 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
                 endRecording()
             }
         })
-        viewModel!!.latestCaptureInfo.observe(this) { captureInfo: CaptureInfo? ->
+        viewModel.latestCaptureInfo.observe(this) { captureInfo: CaptureInfo? ->
             if (captureInfo == null) return@observe
             updateLatestCapture(captureInfo)
         }
-        viewModel!!.cameraMode.observe(this, Observer { mode: Int ->
+        viewModel.cameraMode.observe(this, Observer { mode: Int ->
             if (mode == MODE_TAKE_PHOTO) {
                 switchToPictureMode()
             } else if (mode == MODE_TAKE_VIDEO) {
                 switchToVideoMode()
             }
         })
-        viewModel!!.curUserId.observe(this) { curUserId: Int ->
+        viewModel.curUserId.observe(this) { curUserId: Int ->
             if (curUserId == JavaInterface.USB_INVALID_USER_ID) {
                 showEmptyCameraView()
             } else {
                 hideEmptyCameraView()
+            }
+        }
+
+        viewModel.keepScreenOpen.observe(this) {
+            if (it) {
+                // 在 Activity 的 onCreate 方法中添加以下代码
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                // 清除屏幕常亮标志
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
         }
     }
@@ -462,9 +488,37 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
     }
 
+    private fun startDimTimer() {
+        brightnessHandler.postDelayed(dimRunnable, delayMillis)
+    }
+
+    private fun stopDimTimer() {
+        brightnessHandler.removeCallbacks(dimRunnable)
+    }
+
+    private fun resetScreenBrightness() {
+        stopDimTimer()
+        setScreenBrightness(defaultBrightness)
+        startDimTimer()
+    }
+
+    private fun setScreenBrightness(brightness: Float) {
+        val layoutParams = window.attributes
+        layoutParams.screenBrightness = brightness
+        window.attributes = layoutParams
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        // 用户有操作时，重置屏幕亮度并重新开始计时
+        resetScreenBrightness()
+        return super.dispatchTouchEvent(event)
+    }
+
     override fun onPause() {
         super.onPause()
         thermalCameraView!!.stopPreview()
+
+        stopDimTimer()
     }
 
     override fun onResume() {
@@ -474,11 +528,13 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
         registerReceiver(usbReceiver, filter)
         thermalCameraView!!.startPreview(mHolder!!)
+
+        startDimTimer()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        viewModel!!.logoutDevice()
+        viewModel.logoutDevice()
         cleanupUsbSdk()
         unregisterReceiver(usbReceiver)
     }

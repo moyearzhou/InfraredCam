@@ -31,6 +31,7 @@ class CapturePreviewViewModel(application: Application) : AndroidViewModel(appli
 
     val isVideoLayout = MutableLiveData(false)
 
+
     private var currentCompressJob: Job? = null
 
     fun isVideoPlaying(): Boolean {

@@ -44,6 +44,8 @@ class CameraActivityViewModel(application: Application) : AndroidViewModel(appli
 
     val cameraMode = MutableLiveData(MODE_TAKE_PHOTO)
 
+    val keepScreenOpen = MutableLiveData(true)
+
     fun getSdkVersion(): String {
         //获取USB SDK版本
         return String.format("%08x", JavaInterface.getInstance().USB_GetSDKVersion())
