@@ -55,7 +55,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
-    private var mBinding: ActivityCameraBinding? = null
+    private lateinit var mBinding: ActivityCameraBinding
 
     //预览类对象
     private var thermalCameraView: ThermalCameraView? = null
@@ -187,23 +187,23 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
     private fun switchToVideoMode() {
         val fadeIn = AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
-        mBinding!!.layoutRecodeTimer.startAnimation(fadeIn)
-        mBinding!!.layoutRecodeTimer.visibility = View.VISIBLE
-        mBinding!!.shootView.setCameraMode(ShootView.OPTION_TAKE_VIDEO)
+        mBinding.layoutRecodeTimer.startAnimation(fadeIn)
+        mBinding.layoutRecodeTimer.visibility = View.VISIBLE
+        mBinding.shootView.setCameraMode(ShootView.OPTION_TAKE_VIDEO)
         thermalCameraView!!.captureMode = ThermalCameraView.CaptureMode.MODE_RECORD
     }
 
     private fun switchToPictureMode() {
         val fadeOut = AnimationUtils.loadAnimation(this, android.R.anim.fade_out)
-        mBinding!!.layoutRecodeTimer.startAnimation(fadeOut)
-        mBinding!!.layoutRecodeTimer.visibility = View.GONE
-        mBinding!!.shootView.setCameraMode(ShootView.OPTION_TAKE_PHOTO)
+        mBinding.layoutRecodeTimer.startAnimation(fadeOut)
+        mBinding.layoutRecodeTimer.visibility = View.GONE
+        mBinding.shootView.setCameraMode(ShootView.OPTION_TAKE_PHOTO)
         thermalCameraView!!.captureMode = ThermalCameraView.CaptureMode.MODE_CAPTURE
     }
 
     private fun initCamModeTab() {
         val tabs = arrayOf(getString(R.string.take_photo), getString(R.string.take_video))
-        val tableLayout = mBinding!!.tabMode
+        val tableLayout = mBinding.tabMode
         tableLayout.setTabTextColors(Color.WHITE, Color.parseColor("#ffC13132"))
         for (title in tabs) {
             val newTab = tableLayout.newTab()
@@ -214,9 +214,9 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             override fun onTabSelected(tab: TabLayout.Tab) {
                 val text = tab.text
                 if (text == getString(R.string.take_photo)) {
-                    viewModel!!.cameraMode.setValue(MODE_TAKE_PHOTO)
+                    viewModel.cameraMode.setValue(MODE_TAKE_PHOTO)
                 } else if (text == getString(R.string.take_video)) {
-                    viewModel!!.cameraMode.setValue(MODE_TAKE_VIDEO)
+                    viewModel.cameraMode.setValue(MODE_TAKE_VIDEO)
                 }
             }
 
@@ -342,9 +342,13 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             startPreview()
         } catch (e: Exception) {
             Log.e(Constant.TAG_DEBUG, "Error: $e")
-            Looper.prepare()
-            Toast.makeText(this@CameraActivity, "Error:$e", Toast.LENGTH_SHORT).show()
-            Looper.loop()
+
+            runOnUiThread {
+                toast("Error:$e")
+            }
+//            Looper.prepare()
+//            Toast.makeText(this@CameraActivity, "Error:$e", Toast.LENGTH_SHORT).show()
+//            Looper.loop()
         }
     }
 
@@ -500,6 +504,8 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         stopDimTimer()
         setScreenBrightness(defaultBrightness)
         startDimTimer()
+
+        MyLog.d("reset screen brightness")
     }
 
     private fun setScreenBrightness(brightness: Float) {

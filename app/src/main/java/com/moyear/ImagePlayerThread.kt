@@ -1,11 +1,14 @@
 package com.moyear
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.util.Log
 import android.util.Size
+import android.view.SurfaceHolder
 import android.view.SurfaceView
 import com.blankj.utilcode.util.FileIOUtils
+import com.moyear.activity.ui.gallery.CapturePreviewFragment
 import com.moyear.core.Infrared
 import com.moyear.core.Infrared.CaptureInfo
 import com.moyear.core.StreamBytes
@@ -21,7 +24,6 @@ import java.io.File
  * @Description :
  */
 class ImagePlayerThread(
-    private val surfaceView: SurfaceView,
     frameRate: Int
 ) : Thread() {
 
@@ -41,9 +43,13 @@ class ImagePlayerThread(
 
     private var isReady = false
 
+    private var surfaceView: SurfaceView? = null
+
     private var images: List<File>? = null
 
     private var  operateCallback: OperateCall? = null
+
+    private var jpegDataToDraw: ByteArray ? = null
 
     interface OperateCall {
         fun onStart()
@@ -52,14 +58,18 @@ class ImagePlayerThread(
         fun onStop()
     }
 
-    interface InitListener {
-        fun init()
-    }
+//    interface InitListener {
+//        fun init()
+//    }
 
     init {
         this.frameRate = frameRate
         isPlaying = false
         currentFrame = 0
+    }
+
+    fun setSurfaceView(surfaceView: SurfaceView) {
+        this.surfaceView = surfaceView
     }
 
     fun setPlayConfig(captureInfo: CaptureInfo?) {
@@ -101,8 +111,25 @@ class ImagePlayerThread(
 
     private var lastTime = System.currentTimeMillis()
 
+    fun drawCaptureInSurface(
+        captureInfo: CaptureInfo,
+    ) {
+        val imgFile = Infrared.findCaptureImageFile(captureInfo)
+        if (imgFile != null && !imgFile.exists()) {
+            Log.w(CapturePreviewFragment.TAG, "NO Capture Image File Found")
+            return
+        }
+
+        jpegDataToDraw = FileIOUtils.readFile2BytesByChannel(imgFile)
+    }
+
     override fun run() {
         while (check()) {
+
+            if (jpegDataToDraw != null) {
+                drawJpegPicture(jpegDataToDraw)
+                jpegDataToDraw = null
+            }
 
             if (!isPlaying) continue
 
@@ -187,6 +214,8 @@ class ImagePlayerThread(
     }
 
     private fun drawJpegPicture(jpegData: ByteArray?) {
+        if (surfaceView == null) return
+
         val decodeOptions = BitmapFactory.Options()
         //只获取图像的边界参数, 不解析图像数据
         decodeOptions.inJustDecodeBounds = true
@@ -200,8 +229,8 @@ class ImagePlayerThread(
         val outHeight = decodeOptions.outHeight.toFloat()
         //Log.e(TAG, "drawJpegPicture: outWidth=$outWidth outHeight=$outHeight")
 
-        val screenWidth = surfaceView.width
-        val screenHeight =  surfaceView.height
+        val screenWidth = surfaceView?.width ?: -1
+        val screenHeight =  surfaceView?.height ?: -1
         val scaleWith = screenWidth / outWidth
         val scaleHeight = screenHeight / outHeight
         var scale = 0f
@@ -216,10 +245,10 @@ class ImagePlayerThread(
             ((screenWidth - outWidth * scale) / 2 + outWidth * scale).toInt(),
             ((screenHeight - outHeight * scale) / 2 + outHeight * scale).toInt()
         )
-        val canvas = surfaceView.holder.lockCanvas() //获取目标画图区域，无参数表示锁定的是全部绘图区
+        val canvas = surfaceView!!.holder.lockCanvas() //获取目标画图区域，无参数表示锁定的是全部绘图区
 //        canvas.drawColor(Color.BLACK) //清除上次绘制的内容
         val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
         canvas?.drawBitmap(bitmap, null, rect, null)
-        surfaceView.holder.unlockCanvasAndPost(canvas) //解除锁定并显示
+        surfaceView!!.holder.unlockCanvasAndPost(canvas) //解除锁定并显示
     }
 }

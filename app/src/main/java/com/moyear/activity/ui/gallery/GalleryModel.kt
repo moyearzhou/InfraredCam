@@ -25,7 +25,7 @@ class GalleryModel(application: Application) : AndroidViewModel(application) {
     /**
      * 当前正在预览的照片
      */
-    val currentPreview = MutableLiveData<Infrared.CaptureInfo>()
+    val currentPreview = MutableLiveData<Infrared.CaptureInfo?>()
 
     fun updateGallery() {
         list.clear()
@@ -35,7 +35,7 @@ class GalleryModel(application: Application) : AndroidViewModel(application) {
         galleryCaptures.value = list
     }
 
-    fun removeIndexAt(index: Int) {
+    private fun removeIndexAt(index: Int) {
         if (index < 0 || index >= list.size) {
             MyLog.e("Wrong index: $index")
             return
@@ -43,7 +43,17 @@ class GalleryModel(application: Application) : AndroidViewModel(application) {
 
         list.removeAt(index)
 
-        val newCapture = list[index]
+        var newCapture: Infrared.CaptureInfo? = null
+
+        if (index < list.size) {
+            // 如果后面一个不为空则显示后面一张
+            newCapture = list[index]
+            currentPreview.postValue(newCapture)
+        } else if (index >= 1 && index - 1 < list.size) {
+            // 如果后面为空，但是前面一个不为空则显示前面一张
+            newCapture = list[index - 1]
+        }
+
         currentPreview.postValue(newCapture)
 
         // 更新相册列表
