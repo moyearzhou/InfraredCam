@@ -183,6 +183,8 @@ class StreamRecorder {
             FileIOUtils.writeFileFromBytesByChannel(frameFile, it, true)
             Log.d(TAG, "Write new frame: ${frameNum} in ${Thread.currentThread().name}, file size is: ${it.size}")
 
+
+
             if (zipOutputStream != null) {
 
                 // 往压缩文件根目录中写入thumb.jpg的配置文件

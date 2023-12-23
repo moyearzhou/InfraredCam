@@ -140,7 +140,7 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     private fun endRecording() {
-        mBinding!!.shootView.setCameraMode(ShootView.OPTION_TAKE_VIDEO)
+        mBinding.shootView.setCameraMode(ShootView.OPTION_TAKE_VIDEO)
         thermalCameraView!!.endRecord()
         if (handler != null) {
             handler!!.removeCallbacksAndMessages(null)
@@ -151,11 +151,11 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     private fun takeRecord() {
-        if (viewModel!!.getUserId() == JavaInterface.USB_INVALID_USER_ID) {
+        if (viewModel.getUserId() == JavaInterface.USB_INVALID_USER_ID) {
             toast("尚未连接到usb相机！")
             return
         }
-        mBinding!!.shootView.setCameraMode(ShootView.OPTION_VIDEO_RECORDING)
+        mBinding.shootView.setCameraMode(ShootView.OPTION_VIDEO_RECORDING)
         thermalCameraView!!.startRecord()
         isRecordingTiming = true
         handler = Handler()
@@ -179,9 +179,9 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         val seconds =
             TimeUnit.MILLISECONDS.toSeconds(elapsedTime) - TimeUnit.MINUTES.toSeconds(minutes)
         if (hours > 1) {
-            mBinding!!.txtRecordTime.text = String.format("%02d:%02d:%02d", hours, minutes, seconds)
+            mBinding.txtRecordTime.text = String.format("%02d:%02d:%02d", hours, minutes, seconds)
         } else {
-            mBinding!!.txtRecordTime.text = String.format("%02d:%02d", minutes, seconds)
+            mBinding.txtRecordTime.text = String.format("%02d:%02d", minutes, seconds)
         }
     }
 
@@ -543,6 +543,9 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         viewModel.logoutDevice()
         cleanupUsbSdk()
         unregisterReceiver(usbReceiver)
+
+        //todo 如果正在录视频的话则关闭录视频
+
     }
 
     override fun surfaceCreated(surfaceHolder: SurfaceHolder) {}

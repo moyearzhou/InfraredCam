@@ -2,6 +2,8 @@ package com.moyear
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.PorterDuff
 import android.graphics.Rect
 import android.util.Log
 import android.util.Size
@@ -51,16 +53,16 @@ class ImagePlayerThread(
 
     private var jpegDataToDraw: ByteArray ? = null
 
+    private var bytes: ByteArray? = null
+
+    private var bitmap: Bitmap? = null
+
     interface OperateCall {
         fun onStart()
         fun onPlay(progress: Int, total: Int)
         fun onPause()
         fun onStop()
     }
-
-//    interface InitListener {
-//        fun init()
-//    }
 
     init {
         this.frameRate = frameRate
@@ -157,9 +159,9 @@ class ImagePlayerThread(
 
             val imageFile = images?.get(currentFrame)
 
-            val bytes = FileIOUtils.readFile2BytesByChannel(imageFile) ?: continue
+            bytes = FileIOUtils.readFile2BytesByChannel(imageFile) ?: continue
 
-            val streamBytes = StreamBytes.fromBytes(bytes)
+            val streamBytes = StreamBytes.fromBytes(bytes!!)
 
             // 将yuv数据转换成jpg数据，并显示在SurfaceView上
             val dataYUV = streamBytes.getYuvBytes()
@@ -171,7 +173,7 @@ class ImagePlayerThread(
                 drawJpegPicture(jpegData)
             }
 
-            var curTime = System.currentTimeMillis()
+            val curTime = System.currentTimeMillis()
             Log.d(TAG, "render frame ($currentFrame in $totalFrames), cost : ${(curTime - lastTime)} ms")
             lastTime = curTime
 
@@ -246,9 +248,19 @@ class ImagePlayerThread(
             ((screenHeight - outHeight * scale) / 2 + outHeight * scale).toInt()
         )
         val canvas = surfaceView!!.holder.lockCanvas() //获取目标画图区域，无参数表示锁定的是全部绘图区
-//        canvas.drawColor(Color.BLACK) //清除上次绘制的内容
-        val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
-        canvas?.drawBitmap(bitmap, null, rect, null)
+        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR) //清除上次绘制的内容
+
+        val option = BitmapFactory.Options()
+        option.inMutable = true
+        option.inPreferredConfig = Bitmap.Config.RGB_565
+        bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size, option)
+        if (bitmap != null) {
+            canvas?.drawBitmap(bitmap!!, null, rect, null)
+
+            bitmap?.recycle()
+            bitmap = null
+        }
         surfaceView!!.holder.unlockCanvasAndPost(canvas) //解除锁定并显示
+
     }
 }

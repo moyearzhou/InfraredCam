@@ -15,6 +15,7 @@ class ImageUtils {
 
         /**
          * 将yuv的图像数据准换成jpg的图像数据
+         * todo 节省内存
          */
         @JvmStatic
         @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
