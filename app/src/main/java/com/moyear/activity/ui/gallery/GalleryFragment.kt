@@ -11,6 +11,7 @@ import com.moyear.adapter.GalleryListAdapter
 import com.moyear.core.Infrared
 import com.moyear.callback.OnCapturePreview
 import com.moyear.databinding.FragmentGalleryBinding
+import com.tencent.bugly.crashreport.CrashReport
 
 class GalleryFragment : Fragment() {
 
