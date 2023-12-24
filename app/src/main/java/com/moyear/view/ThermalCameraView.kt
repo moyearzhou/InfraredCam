@@ -67,7 +67,10 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
 
     var streamProcessor: StreamProcessor? = null
 
-    var currentFrame = ByteArray(0)
+    /**
+     * 视频输入流中当前字节流数据
+     */
+    var curFrameBytes = ByteArray(0)
         private set
 
     enum class CaptureMode {
@@ -202,29 +205,38 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
         getHolder().addCallback(this)
     }
 
+    // 临时使用的yuv数据流，为了节省资源，所以设置成成员变量
+    var curYuvBytes = ByteArray(98304)
+
+//    var rawFrameBytes = ByteArray(0)
+
     inner class FnStreamCallBack : FStreamCallBack {
         override fun invoke(handle: Int, frameInfo: USB_FRAME_INFO) {
-            val data = Arrays.copyOf(frameInfo.pBuf, frameInfo.dwBufSize)
-
-            // 更新当前的Frame
-            currentFrame = data
+            if (curFrameBytes.size != frameInfo.dwBufSize) {
+                curFrameBytes = ByteArray(frameInfo.dwBufSize)
+            }
+            // 数据拷贝
+            System.arraycopy(frameInfo.pBuf, 0, curFrameBytes, 0, frameInfo.dwBufSize)
 //            Log.i(TAG, "invoke: length " + data.size)
             if (!holder.surface.isValid) {
                 return
             }
 
-            val streamBytes = fromBytes(data)
+            val streamBytes = fromBytes(curFrameBytes)
             if (streamProcessor != null) {
                 streamProcessor!!.onStream(streamBytes)
             }
             tempInfo = streamBytes.getTempInfo()
 
             // 将yuv数据转换成jpg数据，并显示在SurfaceView上
-            val dataYUV = streamBytes.getYuvBytes()
-            if (dataYUV != null) {
+//            val dataYUV = streamBytes.getYuvBytes()
+            // 读取yuv数据流
+            streamBytes.readYuvBytes(curYuvBytes)
+
+            if (curYuvBytes != null) {
                 val yuvImgWidth = BasicConfig.yuvImgWidth
                 val yuvImgHeight = BasicConfig.yuvImgHeight
-                val jpegData = yuvImage2JpegData(dataYUV, Size(yuvImgWidth, yuvImgHeight))
+                val jpegData = yuvImage2JpegData(curYuvBytes, Size(yuvImgWidth, yuvImgHeight))
                 drawJpegPicture(jpegData)
             }
 
@@ -271,7 +283,7 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
             ((screenHeight - outHeight * scale) / 2 + outHeight * scale).toInt()
         )
         val canvas = holder.lockCanvas() //获取目标画图区域，无参数表示锁定的是全部绘图区
-//        canvas.drawColor(Color.BLACK) //清除上次绘制的内容
+        canvas.drawColor(Color.TRANSPARENT) //清除上次绘制的内容
         val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
         canvas?.drawBitmap(bitmap, null, rect, null)
         holder.unlockCanvasAndPost(canvas) //解除锁定并显示
@@ -338,7 +350,9 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
         if (isRecording) {
             return
         }
-        val fileNameWithoutSuffix = TimeUtils.date2String(Date(System.currentTimeMillis()), "yyyyMMddHHmmss") + "_" + ((Math.random() * 9 + 1) * 1000).toInt()
+        val fileNameWithoutSuffix =
+                TimeUtils.date2String(Date(System.currentTimeMillis()), "yyyyMMddHHmmss") + "_" +
+                        ((Math.random() * 9 + 1) * 1000).toInt()
         val videoName = "$fileNameWithoutSuffix.video"
 
         val recordConfig = StreamRecorder.RecordConfig(videoName, mDwStreamWidth, mDwStreamHeight, frameRate = 25, System.currentTimeMillis())

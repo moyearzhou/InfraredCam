@@ -276,7 +276,7 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             toast("尚未连接到usb相机！")
             return
         }
-        val data = thermalCameraView!!.currentFrame
+        val data = thermalCameraView!!.curFrameBytes
         val streamBytes = fromBytes(data)
         var jpegData: ByteArray? = ByteArray(0)
         // 将yuv数据转换成jpg数据，并显示在SurfaceView上

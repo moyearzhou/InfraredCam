@@ -26,6 +26,20 @@ class StreamBytes(private val rawBytes: ByteArray?) {
         return dataYUV
     }
 
+    fun readYuvBytes(dataYUV: ByteArray): ByteArray? {
+        if (rawBytes == null) return null
+
+//        var dataYUV = ByteArray(98304)
+        // 最后的98304位存储的是yuv数据
+        if (rawBytes.size > 98304) {
+            System.arraycopy(rawBytes, rawBytes.size - 98304, dataYUV, 0, 98304)
+        } else if (rawBytes.size == 98304) {
+            //如果数据位置98304代表当前仅yuv模式，仅yuv
+            System.arraycopy(rawBytes, rawBytes.size - 98304, dataYUV, 0, 98304)
+        }
+        return dataYUV
+    }
+
     fun getTempInfo(): IFR_REALTIME_TM_OUTCOME_UPLOAD_INFO? {
         if (rawBytes == null) return null
 

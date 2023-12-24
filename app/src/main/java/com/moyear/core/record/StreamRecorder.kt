@@ -16,10 +16,12 @@ import java.io.InputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+
 
 class StreamRecorder {
 
@@ -35,8 +37,11 @@ class StreamRecorder {
         }
     }
 
-    private constructor()
+    private constructor() {
 
+    }
+
+    @Volatile
     private var isRecording = false
 
     private var recordConfig: RecordConfig ?= null
@@ -50,7 +55,7 @@ class StreamRecorder {
 
     private var frameNum = AtomicInteger(-1)
 
-    private val mThreadPool: ExecutorService = Executors.newFixedThreadPool(1, MyThreadFactory())
+    private val mThreadPool: ExecutorService = Executors.newFixedThreadPool(3, MyThreadFactory())
 
     private var curZipFile: File? = null
 
@@ -59,6 +64,13 @@ class StreamRecorder {
     private var zipOutputStream: ZipOutputStream? = null
 
     private var future: Future<*>? = null
+
+    // 缓冲区队列
+    private val frameBuffer = LinkedBlockingQueue<ByteArray>()
+    // 缓冲区队列中对应的帧的索引
+    private val frameIndexQueue = LinkedBlockingQueue<Int>()
+
+    private val threadFrameProcessor = FrameProcessor()
 
     data class RecordConfig(var name: String,
                             var frameWidth: Int,
@@ -81,12 +93,22 @@ class StreamRecorder {
             return
         }
 
+        isRecording = true
+
         recordConfig = config
 
         val videoName = config.name
 
         // todo：创建一个新目录目录, 以及创建视频配置文件
         initVideoFile(videoName)
+
+        if (threadFrameProcessor.state == Thread.State.RUNNABLE) {
+            MyLog.d("FrameProcessor线程正处于Runnable状态")
+        } else {
+            // 启动一个线程来处理缓冲区中的帧数据
+            threadFrameProcessor.start()
+            MyLog.d("启动FrameProcessor线程来处理缓冲区的数据")
+        }
     }
 
     private fun initVideoFile(name: String) {
@@ -107,7 +129,6 @@ class StreamRecorder {
         Log.d(TAG, "Create video config: ${configFile.name}")
 
         recordConfig?.createTime = System.currentTimeMillis()
-
 
         // 写入配置文件
 
@@ -157,39 +178,41 @@ class StreamRecorder {
             return
         }
 
-        // todo 把这个放在线程池里面进行
-        // 提交任务
-        future = mThreadPool.submit {
-            Log.d(TAG, "当前frameNum： ${frameNum.get()}   执行在线程 ${Thread.currentThread()}")
+        // 记录帧索引
+        frameIndexQueue.offer(frameNum.get())
+        // 将帧加入缓冲区
+        frameBuffer.offer(streamBytes.getRawBytes())
 
-            // 生成8位的文件名，不足用0填充
-            val frameName = String.format("%0${8}d", frameNum.get())
+        MyLog.d("将第${frameNum.get()}帧数据加入缓冲区")
 
-            if (frameNum.get() == 0) {
-                createVideoThumbnail(streamBytes)
-            }
-
-            saveFrameFile(frameName, streamBytes)
-
-            frameNum.getAndIncrement()
+        if (frameNum.get() == 0) {
+            createVideoThumbnail(streamBytes)
         }
+        frameNum.getAndIncrement()
     }
 
-    private fun saveFrameFile(frameName: String, streamBytes: StreamBytes) {
+    private fun saveFrameFile(frameIndex: Int, byteArray: ByteArray) {
+        // 生成8位的文件名，不足用0填充
+        val frameName = String.format("%0${8}d", frameIndex)
+
+        Log.d(TAG, "正在将第$frameIndex 帧写入到文件")
+
+        if (curVideo == null) {
+            MyLog.e("正在录制的视频已经关闭，无法往其中写入新的帧数据")
+            return
+        }
+        // todo 修改是想方式
         val frameFile = File(curVideo, frameName)
         frameFile.createNewFile()
 
-        streamBytes.getRawBytes()?.let {
+        byteArray.let {
             FileIOUtils.writeFileFromBytesByChannel(frameFile, it, true)
-            Log.d(TAG, "Write new frame: ${frameNum} in ${Thread.currentThread().name}, file size is: ${it.size}")
 
-
-
-            if (zipOutputStream != null) {
-
-                // 往压缩文件根目录中写入thumb.jpg的配置文件
-                writeToZip(zipOutputStream!!, it.inputStream(), ZipEntry("raw/${frameName}"))
-            }
+            Log.d(TAG, "Write frame: ${frameNum} in ${Thread.currentThread().name}, file size is: ${it.size}")
+//            if (zipOutputStream != null) {
+//                // 往压缩文件根目录中写入thumb.jpg的配置文件
+//                writeToZip(zipOutputStream!!, it.inputStream(), ZipEntry("raw/${frameName}"))
+//            }
         }
     }
 
@@ -252,16 +275,15 @@ class StreamRecorder {
         inputStream.close()
     }
 
-
     private fun createVideoThumbnail(streamBytes: StreamBytes) {
-        val dataYUV = streamBytes.getYuvBytes()
+        val dataYUV = ByteArray(98304)
+        streamBytes.readYuvBytes(dataYUV)
+
+//        val dataYUV = streamBytes.getYuvBytes()
         if (dataYUV == null) {
             Log.d(TAG, "Can not decode yuv data in StreamBytes")
             return
         }
-
-//        val yuvImgWidth = recordConfig?.frameWidth ?: 0
-//        val yuvImgHeight = recordConfig?.frameHeight ?:0
 
         // todo：修改以下实现方式
         val yuvImgWidth = BasicConfig.yuvImgWidth
@@ -281,25 +303,21 @@ class StreamRecorder {
         }
     }
 
-
     fun endRecord() {
         // todo 把临时序列变成压缩文件进行储存
-
-        curVideo = null
-
-        frameNum.set(-1)
-        recordConfig = null
-
         isVideoFileCreated = false
         isRecording = false
 
-
         // 如果有任务还在进行的话，则先等待任务完成
         try {
+            MyLog.d("还有任务没有处理完，阻塞直到全部完成再释放资源")
             future?.get() // 这里会阻塞，直到任务完成
         } catch (e: Exception) {
             e.printStackTrace()
         }
+
+        // todo 结束完成后可能缓冲区中还有帧没有处理完
+        MyLog.d("录制视频${curVideo?.name}结束，释放资源")
 
         //  关闭输入流的时候可能还有任务在处理，
         //  如果直接关闭的话会闪退：java.util.ConcurrentModificationException
@@ -307,13 +325,43 @@ class StreamRecorder {
         zipOutputStream?.close()
         outputStream?.close()
 
-        curZipFile = null
+        // todo 结束后关闭线程池
 
+        frameNum.set(-1)
+        recordConfig = null
+
+        curZipFile = null
+        curVideo = null
         // todo 完成后删除创建的临时文件
     }
 
     fun onDestroy() {
         mThreadPool.shutdown()
+    }
+
+    inner class FrameProcessor : Thread() {
+        override fun run() {
+            val flag = true
+            while (flag) {
+                if (frameBuffer.isEmpty()) continue
+
+                try {
+                    // 从缓冲区取出帧数据
+                    val frameData: ByteArray = frameBuffer.take()
+                    // 获取帧的索引
+                    val frameIndex = frameIndexQueue.take()
+
+                    future = mThreadPool.submit {
+                        saveFrameFile(frameIndex, frameData)
+                    }
+                    // 保存帧数据
+//                    saveFrameData(frameData)
+                } catch (e: InterruptedException) {
+                    MyLog.e("FrameProcessor线程发生了崩溃：$e")
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     companion object {
