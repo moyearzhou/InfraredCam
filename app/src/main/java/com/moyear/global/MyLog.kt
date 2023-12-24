@@ -10,7 +10,11 @@ import android.util.Log
  */
 object MyLog {
     fun d(msg: String?) {
-        Log.d("ThermalCam", msg!!)
+        d("ThermalCam", msg)
+    }
+
+    fun d(tag: String, msg: String?) {
+        Log.d(tag, msg!!)
     }
 
     fun e(msg: String?) {
