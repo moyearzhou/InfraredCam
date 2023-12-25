@@ -123,9 +123,10 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
             }
         }
 
-        mBinding.surfaceView.setOnClickListener {
-            viewModel.showToolBar.value = !viewModel.showToolBar.value!!
-        }
+//        // 点击surfaceView显示隐藏工具栏
+//        mBinding.surfaceView.setOnClickListener {
+//            viewModel.showToolBar.value = !viewModel.showToolBar.value!!
+//        }
 
         mBinding.btnVideoPlay.setOnClickListener {
             if (viewModel.isVideoPlaying()) {
@@ -295,7 +296,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
             override fun onStopTrackingTouch(p0: SeekBar?) {
                 // 停止拖动时的回调，可以在这里执行最终的操作
                 p0?.progress?.let {
-                    sequencePlayer?.skip(it)
+                    sequencePlayer?.seekTo(it)
                 }
             }
         })

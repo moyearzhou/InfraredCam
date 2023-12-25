@@ -6,21 +6,17 @@ import android.graphics.Color
 import android.graphics.PorterDuff
 import android.graphics.Rect
 import android.util.Log
-import android.util.Size
 import android.view.SurfaceView
 import com.blankj.utilcode.util.FileIOUtils
 import com.moyear.activity.ui.gallery.CapturePreviewFragment
 import com.moyear.core.Infrared
 import com.moyear.core.Infrared.CaptureInfo
-import com.moyear.core.StreamBytes
+import com.moyear.core.RecordParser
+import com.moyear.core.UncompressedRecordParser
 import com.moyear.global.MyLog
-import com.moyear.utils.CustomFileHelper
-import com.moyear.utils.ImageUtils
-import kotlinx.coroutines.awaitAll
-import java.io.File
+import com.moyear.utils.RawFrameHelper
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.ReentrantLock
 
 /**
  * @version V1.0
@@ -33,8 +29,6 @@ class ImageSequencePlayer(
 ) {
 
     private val TAG = "ImagePlayerThread"
-
-    private val lock = ReentrantLock()
 
     private val obj = Object()
 
@@ -51,17 +45,13 @@ class ImageSequencePlayer(
 
     private var loopPlay = false
 
-    private var isReady = false
-
     private var surfaceView: SurfaceView? = null
-
-    private var images: List<File>? = null
 
     private var operateCallback: OperateCall? = null
 
     private var jpegDataToDraw: ByteArray ? = null
 
-    private var bytes: ByteArray? = null
+    private var frameBytes: ByteArray? = null
 
     private var bitmap: Bitmap? = null
 
@@ -73,6 +63,8 @@ class ImageSequencePlayer(
     private val imageProcessThread = ImageProcessThread()
 
     private val imageRenderThread = ImageRenderThread()
+
+    private val recordParser: RecordParser = UncompressedRecordParser()
 
     interface OperateCall {
         fun onStart()
@@ -94,11 +86,12 @@ class ImageSequencePlayer(
     fun setPlayConfig(captureInfo: CaptureInfo?) {
         this.captureInfo = captureInfo
 
+        recordParser.setInfraredRecord(captureInfo)
+        totalFrames = recordParser.getFrameCount()
+
         curParsedFrame.set(0)
 
         isPlaying = false
-
-        readyForPlay()
     }
 
     fun getTotalFrames(): Int {
@@ -145,23 +138,7 @@ class ImageSequencePlayer(
         jpegDataToDraw = FileIOUtils.readFile2BytesByChannel(imgFile)
     }
 
-    private fun readyForPlay(): Boolean {
-        if (!check()) return false
-
-        if (captureInfo == null) return false
-
-        MyLog.d("获取图像序列：${captureInfo!!.name}")
-
-        // 列出raw图像文件序列
-        images = CustomFileHelper.listRawFrames(captureInfo!!)
-
-        totalFrames = images?.size ?: 0
-
-        MyLog.d("total frames：${totalFrames}")
-        return true
-    }
-
-    fun skip(progress: Int) {
+    fun seekTo(progress: Int) {
         if (progress < 0 || progress > 100) {
             Log.d(TAG, "Please input a valid progress.")
             return
@@ -170,14 +147,15 @@ class ImageSequencePlayer(
 
         synchronized(obj) {
             MyLog.d(TAG, "跳转到第${curParsedFrame.get()}帧，进度：$progress%")
-            // todo 清空缓冲区的内容
-//            val isPlayingLast = isPlaying
-//            isPlaying = false
 
+            val isPlayingLast = isPlaying
+            isPlaying = false
+
+            // 清空缓冲区的内容
             frameBuffer.clear()
             frameIndexQueue.clear()
 
-//            isPlaying = isPlayingLast
+            isPlaying = isPlayingLast
         }
     }
 
@@ -233,15 +211,6 @@ class ImageSequencePlayer(
             while (check()) {
                 if (!isPlaying) continue
 
-                if (!isReady) {
-                    if (readyForPlay()) {
-                        isReady = true
-                        Log.d(TAG, "ready for play: true")
-                    } else {
-                        Log.d(TAG, "ready for play: false")
-                    }
-                }
-
                 if (curParsedFrame.get() > totalFrames - 1) {
                     if (loopPlay) {
                         curParsedFrame.set(curParsedFrame.get()/totalFrames)
@@ -250,19 +219,10 @@ class ImageSequencePlayer(
                     }
                 }
 
-                val imageFile = images?.get(curParsedFrame.get())
-
-                bytes = FileIOUtils.readFile2BytesByChannel(imageFile) ?: continue
-
-                val streamBytes = StreamBytes.fromBytes(bytes!!)
-
-                // 将yuv数据转换成jpg数据，并显示在SurfaceView上
-                val dataYUV = streamBytes.getYuvBytes()
-                if (dataYUV != null) {
-                    val yuvImgWidth = BasicConfig.yuvImgWidth
-                    val yuvImgHeight = BasicConfig.yuvImgHeight
-                    val jpegData =
-                        ImageUtils.yuvImage2JpegData(dataYUV, Size(yuvImgWidth, yuvImgHeight))
+                frameBytes = recordParser.getFrameBytesAt(curParsedFrame.get())
+                frameBytes?.let {
+                    val jpegData = RawFrameHelper.
+                        decodeJpegBytesFromRawFrame(it, BasicConfig.yuvImgWidth, BasicConfig.yuvImgWidth)
 
                     synchronized(obj) {
                         frameBuffer.offer(jpegData)
@@ -287,15 +247,6 @@ class ImageSequencePlayer(
                 if (frameBuffer.isEmpty()) continue
 
                 if (!isPlaying) continue
-
-                if (!isReady) {
-                    if (readyForPlay()) {
-                        isReady = true
-                        MyLog.d(TAG, "ready for play: true")
-                    } else {
-                        MyLog.d(TAG, "ready for play: false")
-                    }
-                }
 
                 var curRenderFrameIndex = -1
                 var jpegData: ByteArray? = null

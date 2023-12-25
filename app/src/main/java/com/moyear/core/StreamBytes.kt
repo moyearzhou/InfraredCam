@@ -3,6 +3,7 @@ package com.moyear.core
 import com.moyear.BasicConfig
 import com.moyear.IFR_REALTIME_TM_OUTCOME_UPLOAD_INFO
 import com.moyear.utils.ConvertUtils
+import com.moyear.utils.RawFrameHelper
 
 class StreamBytes(private val rawBytes: ByteArray?) {
 
@@ -12,18 +13,19 @@ class StreamBytes(private val rawBytes: ByteArray?) {
 
     fun getYuvBytes(): ByteArray? {
         if (rawBytes == null) return null
-
-        var dataYUV = ByteArray(98304)
-        // 最后的98304位存储的是yuv数据
-        if (rawBytes.size > 98304) {
-            System.arraycopy(rawBytes, rawBytes.size - 98304, dataYUV, 0, 98304)
-        }
-
-        //如果数据位置98304代表当前仅yuv模式，仅yuv
-        if (rawBytes.size == 98304) {
-            dataYUV = rawBytes
-        }
-        return dataYUV
+        return RawFrameHelper.decodeYuvBytesFromRawFrame(rawBytes)
+//
+//        var dataYUV = ByteArray(98304)
+//        // 最后的98304位存储的是yuv数据
+//        if (rawBytes.size > 98304) {
+//            System.arraycopy(rawBytes, rawBytes.size - 98304, dataYUV, 0, 98304)
+//        }
+//
+//        //如果数据位置98304代表当前仅yuv模式，仅yuv
+//        if (rawBytes.size == 98304) {
+//            dataYUV = rawBytes
+//        }
+//        return dataYUV
     }
 
     fun readYuvBytes(dataYUV: ByteArray): ByteArray? {
