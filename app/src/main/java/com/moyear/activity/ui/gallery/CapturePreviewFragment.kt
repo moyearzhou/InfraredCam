@@ -20,7 +20,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.blankj.utilcode.util.FileIOUtils
 import com.blankj.utilcode.util.ThreadUtils.runOnUiThread
-import com.moyear.ImagePlayerThread
+import com.moyear.ImageSequencePlayer
 import com.moyear.R
 import com.moyear.activity.OnGalleryNavigate
 import com.moyear.core.Infrared
@@ -29,7 +29,6 @@ import com.moyear.databinding.FragmentCapturePreviewBinding
 import com.moyear.global.GalleryManager
 import com.moyear.global.MyLog
 import com.moyear.global.toast
-import kotlinx.android.synthetic.main.activity_demo.surfaceView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -49,7 +48,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
     private lateinit var mSurfaceView: SurfaceView
 
-    private var playerThread: ImagePlayerThread? = ImagePlayerThread(25)
+    private var sequencePlayer: ImageSequencePlayer? = ImageSequencePlayer(25)
 
     private var isThreadStarted = false
 
@@ -178,7 +177,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         surfaceHolder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
 
-                playerThread?.setSurfaceView(mSurfaceView)
+                sequencePlayer?.setSurfaceView(mSurfaceView)
 
                 // 在这里进行渲染操作
                 drawCaptureInSurface(captureInfo, surfaceHolder)
@@ -253,7 +252,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
             return
         }
         // todo 暂定视频播放
-        playerThread?.pausePlay()
+        sequencePlayer?.pausePlay()
 
         viewModel.isVideoPlaying.value = false
     }
@@ -271,12 +270,12 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         }
 
         if (!isThreadStarted) {
-            playerThread?.start()
+            sequencePlayer?.startPlay()
             isThreadStarted = true
         }
 
 //        playerThread.start()
-        playerThread?.resumePlay()
+        sequencePlayer?.resumePlay()
 
         viewModel.isVideoPlaying.value = true
     }
@@ -288,16 +287,18 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
         mBinding.progressBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
-                playerThread?.skip(p1)
             }
 
             override fun onStartTrackingTouch(p0: SeekBar?) {
             }
 
             override fun onStopTrackingTouch(p0: SeekBar?) {
+                // 停止拖动时的回调，可以在这里执行最终的操作
+                p0?.progress?.let {
+                    sequencePlayer?.skip(it)
+                }
             }
         })
-
     }
 
     private fun initRenderThread(captureInfo: Infrared.CaptureInfo?) {
@@ -317,14 +318,13 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
             }
         }
 
-//        playerThread = ImagePlayerThread(mSurfaceView, 25)
-        playerThread?.setPlayConfig(captureInfo)
+        sequencePlayer?.setPlayConfig(captureInfo)
 
         val curTime = convertFramesToTime(25, 0)
-        val totalTime = convertFramesToTime(25, playerThread?.getTotalFrames() ?: 0)
+        val totalTime = convertFramesToTime(25, sequencePlayer?.getTotalFrames() ?: 0)
         mBinding.txtVideoTime.text = "$curTime/$totalTime"
 
-        playerThread?.setPauseCallback(object : ImagePlayerThread.OperateCall {
+        sequencePlayer?.setPauseCallback(object : ImageSequencePlayer.OperateCall {
             override fun onStart() {
 //                showVideoControlBar()
             }
@@ -358,7 +358,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         super.onPause()
 
         // todo 解决返回后
-        playerThread?.pausePlay()
+        sequencePlayer?.pausePlay()
     }
 
     override fun onClick(p0: View?) {
