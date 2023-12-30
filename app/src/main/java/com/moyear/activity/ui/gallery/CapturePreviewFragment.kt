@@ -1,10 +1,8 @@
 package com.moyear.activity.ui.gallery
 
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.PorterDuff
-import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -29,12 +27,13 @@ import com.moyear.databinding.FragmentCapturePreviewBinding
 import com.moyear.global.GalleryManager
 import com.moyear.global.MyLog
 import com.moyear.global.toast
+import com.moyear.utils.RenderHelper
+import kotlinx.android.synthetic.main.activity_demo.surfaceView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileInputStream
-
 
 class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
@@ -48,9 +47,11 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
     private lateinit var mSurfaceView: SurfaceView
 
-    private var sequencePlayer: ImageSequencePlayer? = ImageSequencePlayer(25)
+    private var sequencePlayer: ImageSequencePlayer? = null
 
     private var isThreadStarted = false
+
+    private var isSurfaceViewCreated = false
 
     companion object {
         const val TAG = "CapturePreviewFragment"
@@ -71,7 +72,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         mBinding = FragmentCapturePreviewBinding.inflate(inflater, container, false)
 
         mSurfaceView = mBinding.surfaceView
-        mSurfaceView.setZOrderOnTop(true);
+        mSurfaceView.setZOrderOnTop(false)
         mSurfaceView.holder.setFormat(PixelFormat.TRANSPARENT);
 
 
@@ -166,22 +167,30 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
 
         if (captureInfo.type == Infrared.CAPTURE_PHOTO) {
             viewModel.isVideoLayout.value = false
+
+            sequencePlayer?.inactive()
         } else if (captureInfo.type == Infrared.CAPTURE_VIDEO) {
             viewModel.isVideoLayout.value = true
+
+            initRenderThread(captureInfo)
         }
 
-        initRenderThread(captureInfo)
+//        sequencePlayer?.drawCaptureInSurface(captureInfo)
 
-//        playerThread?.drawCaptureInSurface(captureInfo)
+        if (isSurfaceViewCreated) {
+            drawThumbnailInSurface(captureInfo)
+        }
 
         val surfaceHolder = mSurfaceView.holder
         surfaceHolder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
-
+                // 初始化surfaceView完成的时候，显示预览图
                 sequencePlayer?.setSurfaceView(mSurfaceView)
 
                 // 在这里进行渲染操作
-                drawCaptureInSurface(captureInfo, surfaceHolder)
+                drawThumbnailInSurface(captureInfo)
+
+                isSurfaceViewCreated = true
             }
 
             override fun surfaceChanged(
@@ -199,11 +208,9 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         })
     }
 
-    private fun drawCaptureInSurface(
-        captureInfo: Infrared.CaptureInfo,
-        holder: SurfaceHolder?
+    private fun drawThumbnailInSurface(
+        captureInfo: Infrared.CaptureInfo
     ) {
-        if (holder == null) return
 
         val imgFile = Infrared.findCaptureImageFile(captureInfo!!)
         if (imgFile != null && !imgFile.exists()) {
@@ -212,40 +219,8 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
         }
 
         val jpegData = FileIOUtils.readFile2BytesByChannel(imgFile)
-
-        val decodeOptions = BitmapFactory.Options()
-        //只获取图像的边界参数, 不解析图像数据
-        decodeOptions.inJustDecodeBounds = true
-        BitmapFactory.decodeByteArray(
-            jpegData,
-            0,
-            jpegData!!.size,
-            decodeOptions
-        )
-        val outWidth = decodeOptions.outWidth.toFloat()
-        val outHeight = decodeOptions.outHeight.toFloat()
-        //Log.e(TAG, "drawJpegPicture: outWidth=$outWidth outHeight=$outHeight")
-
-        val screenWidth = mSurfaceView.width
-        val screenHeight =  mSurfaceView.height
-        val scaleWith = screenWidth / outWidth
-        val scaleHeight = screenHeight / outHeight
-        var scale = 0f
-        scale = if (scaleWith >= scaleHeight) {
-            scaleHeight
-        } else {
-            scaleWith
-        }
-        val rect = Rect(
-            (screenWidth - outWidth * scale).toInt() / 2,
-            (screenHeight - outHeight * scale).toInt() / 2,
-            ((screenWidth - outWidth * scale) / 2 + outWidth * scale).toInt(),
-            ((screenHeight - outHeight * scale) / 2 + outHeight * scale).toInt()
-        )
-        val canvas = holder.lockCanvas() //获取目标画图区域，无参数表示锁定的是全部绘图区
-        val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
-        canvas?.drawBitmap(bitmap, null, rect, null)
-        holder.unlockCanvasAndPost(canvas) //解除锁定并显示
+        // 缩放图像来显示图像
+        RenderHelper.scaleRenderToFitSurfaceView(jpegData, mSurfaceView)
     }
 
     private fun pauseVideo() {
@@ -275,7 +250,6 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
             isThreadStarted = true
         }
 
-//        playerThread.start()
         sequencePlayer?.resumePlay()
 
         viewModel.isVideoPlaying.value = true
@@ -298,6 +272,8 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
                 p0?.progress?.let {
                     sequencePlayer?.seekTo(it)
                 }
+
+                // todo 停止拖动的时候，预览画面也要更改
             }
         })
     }
@@ -318,7 +294,7 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
                 playVideo()
             }
         }
-
+        sequencePlayer = ImageSequencePlayer(25)
         sequencePlayer?.setPlayConfig(captureInfo)
 
         val curTime = convertFramesToTime(25, 0)
@@ -350,9 +326,6 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
                 mBinding.btnVideoPlay.visibility = View.VISIBLE
             }
         })
-
-//        playerThread.start()
-
     }
 
     override fun onPause() {
@@ -475,14 +448,19 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
     private fun showDeleteConfirmDialog() {
         val capture = galleryModel.currentPreview.value ?: return
 
-//        val fileNameNoSuffix = capture.name.removeSuffix(".jpg") ?: ""
-
         val builder = AlertDialog.Builder(requireContext())
         builder.setTitle("删除")
             .setMessage("是否删除该热成像照片，此操作同时会删除所保存的原始数据，是否确定")
             .setPositiveButton("确定") {
                 _,_ ->
-                galleryModel.deleteCapture(capture)
+                galleryModel.deleteCapture(capture) {
+                    //
+                    sequencePlayer?.inactive()
+
+                    runOnUiThread {
+                        toast("删除${capture.name}成功")
+                    }
+                }
             }
             .setNegativeButton("取消", null)
             .show()
@@ -532,7 +510,6 @@ class CapturePreviewFragment : Fragment(), View.OnClickListener {
             "是否保存原始数据: ${rawFile != null && rawFile.exists()} \n" +
             tempStr
         }
-
 
         val builder = AlertDialog.Builder(requireContext())
         builder.setTitle("信息")

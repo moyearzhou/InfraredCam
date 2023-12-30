@@ -60,7 +60,7 @@ class GalleryModel(application: Application) : AndroidViewModel(application) {
         galleryCaptures.postValue(list)
     }
 
-    fun deleteCapture(capture: Infrared.CaptureInfo) {
+    fun deleteCapture(capture: Infrared.CaptureInfo, deleteCallBack: () -> Unit) {
         // todo 删除大量文件夹需要耗时，使用携程操作
         CoroutineScope(Dispatchers.IO).launch {
             var result = false
@@ -76,6 +76,9 @@ class GalleryModel(application: Application) : AndroidViewModel(application) {
                 MyLog.d("Delete capture $capture false")
                 return@launch
             }
+
+            // 删除回调
+            deleteCallBack()
 
             // 删除当前照片后，通知正在预览的照片切换到下一张图片
             val index = list.indexOf(capture)

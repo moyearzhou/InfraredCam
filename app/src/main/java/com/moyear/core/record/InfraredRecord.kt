@@ -20,12 +20,6 @@ class InfraredRecord {
         // todo 实现该方法
     }
 
-//    private fun listRawFramesFiles(): Array<File>{
-//        val filePath = File(path)
-//
-//
-//    }
-
     companion object {
 
         fun from(captureInfo: Infrared.CaptureInfo): InfraredRecord? {

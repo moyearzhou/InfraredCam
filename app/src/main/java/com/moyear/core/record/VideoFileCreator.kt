@@ -9,7 +9,11 @@ interface VideoFileCreator {
 
     fun createThumbnail(streamBytes: StreamBytes)
 
-    fun writeFrameToFile(frameIndex: Int, byteArray: ByteArray)
+    fun writeFramePageToFile(framePagingIndex: Int, byteArray: ByteArray)
 
     fun releaseRes()
+
+    fun updateVideoConfig(recordConfig: StreamRecorder.RecordConfig)
+
+    fun getRecordConfig(): StreamRecorder.RecordConfig?
 }

@@ -22,6 +22,7 @@ import com.moyear.IFR_REALTIME_TM_OUTCOME_UPLOAD_INFO
 import com.moyear.core.StreamBytes
 import com.moyear.core.StreamBytes.Companion.fromBytes
 import com.moyear.core.record.StreamRecorder
+import com.moyear.global.getCurrentDateTime
 import com.moyear.utils.ImageUtils.Companion.yuvImage2JpegData
 import java.util.Arrays
 import java.util.Date
@@ -229,7 +230,6 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
             tempInfo = streamBytes.getTempInfo()
 
             // 将yuv数据转换成jpg数据，并显示在SurfaceView上
-//            val dataYUV = streamBytes.getYuvBytes()
             // 读取yuv数据流
             streamBytes.readYuvBytes(curYuvBytes)
 
@@ -355,7 +355,8 @@ class ThermalCameraView(context: Context?) : SurfaceView(context), SurfaceHolder
                         ((Math.random() * 9 + 1) * 1000).toInt()
         val videoName = "$fileNameWithoutSuffix.video"
 
-        val recordConfig = StreamRecorder.RecordConfig(videoName, mDwStreamWidth, mDwStreamHeight, frameRate = 25, System.currentTimeMillis())
+        val recordConfig = StreamRecorder.RecordConfig(videoName, mDwStreamWidth, mDwStreamHeight, frameRate = 25)
+        recordConfig.createTime = getCurrentDateTime()
         videoRecorder.beginRecord(recordConfig)
 
         isRecording = true

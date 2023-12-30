@@ -50,7 +50,6 @@ class GalleryListAdapter: RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         param.width = thumbnailSize
         viewHolder.imgCapture.layoutParams = param
 
-
         viewHolder.imgPlay.let {
             if (capture.type == Infrared.CAPTURE_PHOTO) {
                 it.visibility = View.GONE
@@ -61,7 +60,7 @@ class GalleryListAdapter: RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         }
 
 
-        var imgFile = Infrared.findCaptureImageFile(capture)
+        val imgFile = Infrared.findCaptureImageFile(capture)
         imgFile?.let {
             if (!it.exists()) return@let
 
