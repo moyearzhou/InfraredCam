@@ -15,6 +15,7 @@ import com.moyear.core.RecordParser
 import com.moyear.core.UncompressedRecordParser
 import com.moyear.global.MyLog
 import com.moyear.utils.RawFrameHelper
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -27,7 +28,6 @@ import java.util.concurrent.atomic.AtomicInteger
 class ImageSequencePlayer(
     frameRate: Int
 ) {
-
     private val TAG = "ImagePlayerThread"
 
     private val obj = Object()
@@ -49,8 +49,6 @@ class ImageSequencePlayer(
 
     private var operateCallback: OperateCall? = null
 
-    private var jpegDataToDraw: ByteArray ? = null
-
     private var frameBytes: ByteArray? = null
 
     private var bitmap: Bitmap? = null
@@ -62,9 +60,15 @@ class ImageSequencePlayer(
 
     private val imageProcessThread = ImageProcessThread()
 
-    private val imageRenderThread = ImageRenderThread()
+    private var imageRenderThread = ImageRenderThread()
 
-    private val recordParser: RecordParser = UncompressedRecordParser()
+    // 最大预先解析数量
+    private var MAX_PRE_PARSE_LIMIT = 1000
+
+    private var recordParser: RecordParser = UncompressedRecordParser()
+
+    // 使用该字段来结束线程的运行
+    private var disActive = false
 
     interface OperateCall {
         fun onStart()
@@ -99,17 +103,20 @@ class ImageSequencePlayer(
     }
     fun resumePlay() {
         isPlaying = true
+
+        if (disActive) {
+            active()
+        }
+
     }
 
     fun pausePlay() {
         isPlaying = false
-
         operateCallback?.onPause()
     }
 
     fun startPlay() {
-        imageProcessThread.start()
-        imageRenderThread.start()
+        active()
     }
 
     fun setPauseCallback(operateCallback: OperateCall?) {
@@ -124,7 +131,7 @@ class ImageSequencePlayer(
         return true
     }
 
-    private var lastTime = System.currentTimeMillis()
+    private var lastParsedTime = System.currentTimeMillis()
 
     fun drawCaptureInSurface(
         captureInfo: CaptureInfo,
@@ -135,7 +142,18 @@ class ImageSequencePlayer(
             return
         }
 
-        jpegDataToDraw = FileIOUtils.readFile2BytesByChannel(imgFile)
+        val jpegData = FileIOUtils.readFile2BytesByChannel(imgFile)
+        drawCaptureInSurface(jpegData)
+    }
+
+    fun drawCaptureInSurface(
+        jpegData: ByteArray?
+    ) {
+        val isPlayingLast = isPlaying
+
+        drawJpegPicture(jpegData)
+
+        isPlaying = isPlayingLast
     }
 
     fun seekTo(progress: Int) {
@@ -143,6 +161,7 @@ class ImageSequencePlayer(
             Log.d(TAG, "Please input a valid progress.")
             return
         }
+
         curParsedFrame.set(totalFrames * progress / 100)
 
         synchronized(obj) {
@@ -154,6 +173,14 @@ class ImageSequencePlayer(
             // 清空缓冲区的内容
             frameBuffer.clear()
             frameIndexQueue.clear()
+
+            // 暂停播放的时候如果拖动的话会更改显示预览图
+            frameBytes = recordParser.getFrameBytesAt(curParsedFrame.get())
+            frameBytes?.let {
+                val jpegData = RawFrameHelper.
+                    decodeJpegBytesFromRawFrame(it, BasicConfig.yuvImgWidth, BasicConfig.yuvImgHeight)
+                drawJpegPicture(jpegData)
+            }
 
             isPlaying = isPlayingLast
         }
@@ -209,6 +236,8 @@ class ImageSequencePlayer(
     inner class ImageProcessThread: Thread() {
         override fun run() {
             while (check()) {
+                if (disActive) return
+
                 if (!isPlaying) continue
 
                 if (curParsedFrame.get() > totalFrames - 1) {
@@ -219,20 +248,33 @@ class ImageSequencePlayer(
                     }
                 }
 
-                frameBytes = recordParser.getFrameBytesAt(curParsedFrame.get())
-                frameBytes?.let {
-                    val jpegData = RawFrameHelper.
-                        decodeJpegBytesFromRawFrame(it, BasicConfig.yuvImgWidth, BasicConfig.yuvImgWidth)
-
-                    synchronized(obj) {
-                        frameBuffer.offer(jpegData)
-                        frameIndexQueue.offer(curParsedFrame.get())
-                    }
+                if (frameBuffer.size >= MAX_PRE_PARSE_LIMIT) {
+//                    MyLog.d("预先加载的帧数量已经大于上限，等待缓冲区内容消费")
+                    continue
                 }
 
-                val curTime = System.currentTimeMillis()
-                MyLog.d(TAG, "解析第[${curParsedFrame.get() + 1}/$totalFrames]帧到缓冲区, 消耗${(curTime - lastTime)} ms")
-                lastTime = curTime
+                val frameIndexToParse = curParsedFrame.get()
+                frameBytes = recordParser.getFrameBytesAt(frameIndexToParse)
+
+                if (frameBytes == null) {
+                    MyLog.d("解析第$frameIndexToParse 帧错误, 获取的字节为null")
+                }
+                frameBytes?.let {
+                    val jpegData = RawFrameHelper.
+                        decodeJpegBytesFromRawFrame(it, BasicConfig.yuvImgWidth, BasicConfig.yuvImgHeight)
+
+                    frameBuffer.offer(jpegData)
+                    frameIndexQueue.offer(frameIndexToParse)
+
+//                    synchronized(obj) {
+//                        frameBuffer.offer(jpegData)
+//                        frameIndexQueue.offer(frameIndexToParse)
+//                    }
+
+                    val curTime = System.currentTimeMillis()
+                    MyLog.d(TAG, "解析第[${frameIndexToParse + 1}/$totalFrames]帧到缓冲区, 消耗${(curTime - lastParsedTime)} ms")
+                    lastParsedTime = curTime
+                }
 
                 curParsedFrame.incrementAndGet()
             }
@@ -242,38 +284,44 @@ class ImageSequencePlayer(
     private var lastRenderTime = -1L
 
     inner class ImageRenderThread: Thread() {
+
         override fun run() {
             while (true) {
+                if (disActive) return
+
                 if (frameBuffer.isEmpty()) continue
 
                 if (!isPlaying) continue
 
                 var curRenderFrameIndex = -1
-                var jpegData: ByteArray? = null
+//                var jpegData: ByteArray? = null
                 try {
-                    // 从缓冲区取出帧数据
-                    synchronized(obj) {
-                        jpegData = frameBuffer.take()
+//                    // 从缓冲区取出帧数据
+//                    synchronized(obj) {
+//                        val jpegData = frameBuffer.take()
+//                        // 获取帧的索引
+//                        curRenderFrameIndex = frameIndexQueue.take()
+//                        val testquee = frameIndexQueue
+//
+//                        drawJpegPicture(jpegData)
+//                    }
+
+                    val jpegData = frameBuffer.poll()
+
+                    frameIndexQueue.poll()?.let {
                         // 获取帧的索引
-                        curRenderFrameIndex = frameIndexQueue.take()
+                        curRenderFrameIndex = it
                     }
+
+                    // 获取帧的索引
+//                    curRenderFrameIndex = frameIndexQueue.poll()
+
+                    drawJpegPicture(jpegData)
+
                 } catch (e: InterruptedException) {
-                    MyLog.e("FrameProcessor线程发生了崩溃：$e")
+                    MyLog.e("ImageRenderThread线程发生了崩溃：$e")
                     e.printStackTrace()
                 }
-
-                try {
-                    val sleepTime = (1000 / frameRate).toLong()
-                    if (sleepTime > 0) {
-                        sleep(sleepTime)
-                    }
-                } catch (e: InterruptedException) {
-                    e.printStackTrace()
-                }
-
-                drawJpegPicture(jpegData)
-
-                val curTime = System.currentTimeMillis()
 
                 operateCallback?.onPlay(curRenderFrameIndex, totalFrames)
 
@@ -284,10 +332,41 @@ class ImageSequencePlayer(
                     continue
                 }
 
+                try {
+                    val sleepTime = (1000 / frameRate).toLong()
+                    if (sleepTime > 0) {
+                        sleep(sleepTime)
+//                        MyLog.d("Thread: ${currentThread().name} sleeping ..... $sleepTime")
+                    }
+                } catch (e: InterruptedException) {
+                    e.printStackTrace()
+                }
+
+                val curTime = System.currentTimeMillis()
                 Log.d(TAG, "渲染第[${curRenderFrameIndex + 1}/$totalFrames]帧图像到SurfaceView, 消耗${(curTime - lastRenderTime)} ms")
                 lastRenderTime = curTime
             }
         }
+    }
+
+    fun inactive() {
+        synchronized(obj) {
+            disActive = true
+            isPlaying = false
+
+            frameBuffer.clear()
+            frameIndexQueue.clear()
+        }
+
+        curParsedFrame.set(0)
+    }
+
+    fun active() {
+        imageProcessThread.name = "ImageProcessThread"
+        imageProcessThread.start()
+
+        imageRenderThread.name = "ImageRenderThread"
+        imageRenderThread.start()
     }
 
 }

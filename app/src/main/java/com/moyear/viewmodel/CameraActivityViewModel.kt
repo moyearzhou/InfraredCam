@@ -16,6 +16,7 @@ import com.moyear.activity.CameraActivity.Companion.MODE_TAKE_PHOTO
 import com.moyear.core.Infrared
 import com.moyear.global.AppPath
 import com.moyear.global.GalleryManager
+import com.moyear.global.MyLog
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -212,15 +213,20 @@ class CameraActivityViewModel(application: Application) : AndroidViewModel(appli
         Log.i("Debug", "Save image file in: " + photoFile.path)
     }
 
+    fun setImageBackgroundCorrect(): Boolean {
+        if (!isUsbSdkInit) {
+            MyLog.d("未初始化SDK，无法进行背景校正")
+            return false
+        }
+
+        return JavaInterface.getInstance().USB_SetImageManualCorrect(getUserId())
+    }
+
     fun fetchLastCapture() {
-
-
         val captures = GalleryManager.getInstance().listCaptures()
         if (captures.isNotEmpty()) {
             latestCaptureInfo.value = captures.last()
         }
-
-
     }
 
 

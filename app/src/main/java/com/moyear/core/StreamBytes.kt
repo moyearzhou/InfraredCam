@@ -11,10 +11,14 @@ class StreamBytes(private val rawBytes: ByteArray?) {
         return rawBytes
     }
 
+    fun getSize(): Int {
+        return rawBytes?.size ?: 0
+    }
+
     fun getYuvBytes(): ByteArray? {
         if (rawBytes == null) return null
         return RawFrameHelper.decodeYuvBytesFromRawFrame(rawBytes)
-//
+
 //        var dataYUV = ByteArray(98304)
 //        // 最后的98304位存储的是yuv数据
 //        if (rawBytes.size > 98304) {

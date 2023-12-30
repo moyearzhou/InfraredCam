@@ -18,7 +18,6 @@ class CustomFileHelper {
                 }
 
             return imageFiles
-
         }
 
         @JvmStatic

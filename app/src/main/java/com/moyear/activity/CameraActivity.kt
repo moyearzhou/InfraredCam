@@ -94,7 +94,15 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             startActivity(intent)
         }
         mBinding!!.btnConfig.setOnClickListener { view: View? ->
-            toast("代码待写！！")
+//            toast("代码待写！！")
+
+            val result = viewModel.setImageBackgroundCorrect()
+
+            if (result) {
+                toast("图像校正成功")
+            } else {
+                toast("图像校正失败")
+            }
         }
         mBinding!!.shootView.setShutterTouchListener(object : ShutterTouchEventListener {
             override fun takePicture() {
@@ -244,6 +252,12 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
                 }
                 R.id.stream_setting -> {
                     navigateToSetting(SettingsActivity.SETTING_CAMERA)
+                }
+                R.id.menu_mode_capture -> {
+                    viewModel.cameraMode.setValue(MODE_TAKE_PHOTO)
+                }
+                R.id.menu_mode_video -> {
+                    viewModel.cameraMode.setValue(MODE_TAKE_VIDEO)
                 }
             }
             false

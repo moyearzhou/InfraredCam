@@ -12,6 +12,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -31,6 +32,8 @@ class ZipVideoWriter : VideoFileCreator {
 
     private var curZipFile: File? = null
 
+    private var totalFrame = AtomicInteger(0)
+
     fun initZipRawRecordFile(zipFilePath: String) {
         curZipFile = File(zipFilePath)
 
@@ -41,7 +44,7 @@ class ZipVideoWriter : VideoFileCreator {
     override fun initVideoFile(name: String, recordConfig: StreamRecorder.RecordConfig): File? {
         this.recordConfig = recordConfig
         val videoName = if (name.endsWith(".video")) {
-            name
+            name.replace("video", "raws")
         } else {
             "$name.raws"
         }
@@ -88,19 +91,21 @@ class ZipVideoWriter : VideoFileCreator {
         }
     }
 
-    override fun writeFrameToFile(frameIndex: Int, byteArray: ByteArray) {
+    override fun writeFramePageToFile(framePagingIndex: Int, byteArray: ByteArray) {
         // 生成8位的文件名，不足用0填充
-        val frameName = String.format("%0${8}d", frameIndex)
+        val frameName = String.format("%0${8}d", framePagingIndex)
 
-        Log.d(TAG, "正在将第$frameIndex 帧写入到文件")
+        Log.d(TAG, "正在将第$framePagingIndex 帧写入到文件")
 
         if (zipOutputStream == null) {
             MyLog.e("正在录制的视频已经关闭，无法往其中写入新的帧数据")
             return
         }
 
+//        totalFrame.set(Math.max(totalFrame.get(), frameIndex))
+
         byteArray.let {
-            Log.d(TAG, "Write frame: $frameIndex in ${Thread.currentThread().name}, file size is: ${it.size}")
+            Log.d(TAG, "写入第$framePagingIndex 帧，执行在线程： ${Thread.currentThread().name}, file size is: ${it.size}")
             // 往压缩文件根目录中写入thumb.jpg的配置文件
             writeToZip(zipOutputStream!!, it.inputStream(), ZipEntry("raw/${frameName}"))
         }
@@ -114,6 +119,15 @@ class ZipVideoWriter : VideoFileCreator {
         outputStream?.close()
 
         curZipFile = null
+    }
+
+    override fun updateVideoConfig(recordConfig: StreamRecorder.RecordConfig) {
+
+
+    }
+
+    override fun getRecordConfig(): StreamRecorder.RecordConfig? {
+        return null
     }
 
     private fun writeToZip(zipOutputStream: ZipOutputStream,
