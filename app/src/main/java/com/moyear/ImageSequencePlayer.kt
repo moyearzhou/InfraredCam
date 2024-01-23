@@ -112,10 +112,12 @@ class ImageSequencePlayer(
 
     fun pausePlay() {
         isPlaying = false
+
         operateCallback?.onPause()
     }
 
     fun startPlay() {
+
         active()
     }
 
@@ -307,14 +309,8 @@ class ImageSequencePlayer(
 //                    }
 
                     val jpegData = frameBuffer.poll()
-
-                    frameIndexQueue.poll()?.let {
-                        // 获取帧的索引
-                        curRenderFrameIndex = it
-                    }
-
                     // 获取帧的索引
-//                    curRenderFrameIndex = frameIndexQueue.poll()
+                    curRenderFrameIndex = frameIndexQueue.poll()
 
                     drawJpegPicture(jpegData)
 
